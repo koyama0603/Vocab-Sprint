@@ -1,0 +1,10 @@
+{
+  "name": "vocab-sprint",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:data": "node scripts/generate-word-data.mjs",
+    "generate:audio": "node scripts/generate-audio-manifest.mjs",
+    "serve": "node scripts/serve.mjs"
+  }
+}

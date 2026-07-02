@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Word Rush</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body data-theme="dark" data-lanes="3">
+  <main class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>Word Rush</h1>
+        <div class="phase" id="phaseLabel">Loading</div>
+      </div>
+      <div class="toolbar">
+        <input id="levelSelect" type="hidden" value="elementary3">
+        <div class="level-picker" id="levelPicker">
+          <button class="level-picker-button" id="levelButton" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span class="level-picker-label" id="levelButtonLabel">Loading</span>
+            <span class="level-picker-meta" id="levelButtonMeta">0回</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6"></path>
+            </svg>
+          </button>
+          <div class="level-menu hidden" id="levelMenu" role="listbox" aria-label="レベル選択"></div>
+        </div>
+        <select class="lane-count-select" id="laneCountSelect" aria-label="レーン数">
+          <option value="1">1レーン</option>
+          <option value="2">2レーン</option>
+          <option value="3" selected>3レーン</option>
+        </select>
+        <div class="sound-control">
+          <button class="icon-button" id="soundButton" type="button" title="音設定" aria-label="音設定" aria-expanded="false">
+            <svg class="sound-on-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9v6h4l5 4V5L8 9H4z"></path>
+              <path d="M16 9.5a4 4 0 0 1 0 5"></path>
+              <path d="M18.5 7a7 7 0 0 1 0 10"></path>
+            </svg>
+            <svg class="sound-off-icon hidden" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9v6h4l5 4V5L8 9H4z"></path>
+              <path d="M19 9l-6 6"></path>
+              <path d="M13 9l6 6"></path>
+            </svg>
+          </button>
+          <div class="sound-panel hidden" id="soundPanel" role="dialog" aria-label="音設定">
+            <div class="panel-title">音設定</div>
+            <label class="switch-row">
+              <span>BGM</span>
+              <input id="bgmEnabledInput" type="checkbox">
+            </label>
+            <label class="range-row">
+              <span>BGM音量</span>
+              <input id="bgmVolumeInput" type="range" min="0" max="1" step="0.01">
+              <strong id="bgmVolumeValue">16%</strong>
+            </label>
+            <label class="select-row">
+              <span>BGM曲</span>
+              <select id="bgmTrackSelect"></select>
+            </label>
+            <label class="switch-row">
+              <span>効果音</span>
+              <input id="sfxEnabledInput" type="checkbox">
+            </label>
+            <label class="range-row">
+              <span>効果音量</span>
+              <input id="sfxVolumeInput" type="range" min="0" max="1" step="0.01">
+              <strong id="sfxVolumeValue">52%</strong>
+            </label>
+          </div>
+        </div>
+        <button class="icon-button" id="themeButton" type="button" title="ライトモード" aria-label="ライトモード">
+          <svg class="theme-light-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2"></path>
+            <path d="M12 20v2"></path>
+            <path d="M4.93 4.93l1.41 1.41"></path>
+            <path d="M17.66 17.66l1.41 1.41"></path>
+            <path d="M2 12h2"></path>
+            <path d="M20 12h2"></path>
+            <path d="M4.93 19.07l1.41-1.41"></path>
+            <path d="M17.66 6.34l1.41-1.41"></path>
+          </svg>
+          <svg class="theme-dark-icon hidden" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"></path>
+          </svg>
+        </button>
+        <button class="icon-button" id="pauseButton" type="button" title="一時停止" aria-label="一時停止" disabled>
+          <svg class="pause-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5v14"></path>
+            <path d="M16 5v14"></path>
+          </svg>
+          <svg class="play-icon hidden" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5l11 7-11 7z"></path>
+          </svg>
+        </button>
+        <button class="back-button" id="backButton" type="button" title="戻る" aria-label="戻る">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M19 12H5"></path>
+            <path d="M12 19l-7-7 7-7"></path>
+          </svg>
+          <span>戻る</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="main">
+      <div class="game-shell">
+        <canvas id="gameCanvas" width="900" height="620"></canvas>
+        <div class="answers" id="answers"></div>
+        <div class="overlay show" id="overlay">
+          <div class="overlay-panel">
+            <h2 id="overlayTitle">Word Rush</h2>
+            <p id="overlayCopy">Loading</p>
+            <div class="title-details" id="titleDetails">
+              <div class="title-current">
+                <div>
+                  <span>現在のレベル</span>
+                  <strong id="currentLevelValue">小学校3年</strong>
+                </div>
+                <div>
+                  <span>レーン</span>
+                  <strong id="currentLaneValue">3レーン</strong>
+                </div>
+              </div>
+              <div class="title-guide">
+                <span>落ちてくる英単語に合う訳を選びます。</span>
+                <span>キー操作は 1-9、タップやクリックにも対応しています。</span>
+                <span>レベル・レーン・音量は次回起動時にも反映されます。</span>
+              </div>
+              <div class="settings-grid" aria-label="速度と時間の設定">
+                <label>
+                  <span>正解時 +秒</span>
+                  <input id="correctTimeInput" type="number" min="0" max="20" step="0.1">
+                </label>
+                <label>
+                  <span>連続正解係数</span>
+                  <input id="streakTimeInput" type="number" min="0" max="5" step="0.1">
+                </label>
+                <label>
+                  <span>失敗時 -秒</span>
+                  <input id="wrongTimeInput" type="number" min="0" max="20" step="0.1">
+                </label>
+              </div>
+            </div>
+            <div class="review-list" id="reviewList"></div>
+            <div class="overlay-actions">
+              <button class="start-button" id="startButton" type="button" disabled>Start</button>
+              <button class="secondary-button hidden" id="overlayBackButton" type="button">戻る</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="hud">
+        <section class="timer-block">
+          <div class="label-row">
+            <span>Time</span>
+            <span id="levelLabel">小学校3年</span>
+          </div>
+          <div class="timer-value" id="timeValue">60</div>
+          <div class="meter" aria-hidden="true">
+            <div class="meter-fill" id="timeBar"></div>
+          </div>
+        </section>
+
+        <section class="stats">
+          <div class="stat-row"><span>Score</span><strong id="scoreValue">0</strong></div>
+          <div class="stat-row"><span>Best</span><strong id="bestValue">0</strong></div>
+          <div class="stat-row"><span>Streak</span><strong id="streakValue">0</strong></div>
+        </section>
+
+        <div class="divider" aria-hidden="true"></div>
+
+        <section class="stats">
+          <div class="stat-row"><span>Correct</span><strong id="correctValue">0</strong></div>
+          <div class="stat-row"><span>Wrong</span><strong id="wrongValue">0</strong></div>
+          <div class="stat-row"><span>Miss</span><strong id="missValue">0</strong></div>
+          <div class="stat-row"><span>Accuracy</span><strong id="accuracyValue">0%</strong></div>
+        </section>
+
+        <section class="level-meta" aria-label="単語データ">
+          <div class="stat-row"><span>Words</span><strong id="wordCountValue">0</strong></div>
+        </section>
+
+        <section class="feed" id="feed" aria-label="ログ"></section>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
