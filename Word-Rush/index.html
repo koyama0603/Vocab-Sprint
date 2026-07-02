@@ -14,22 +14,6 @@
         <div class="phase" id="phaseLabel">Loading</div>
       </div>
       <div class="toolbar">
-        <input id="levelSelect" type="hidden" value="elementary3">
-        <div class="level-picker" id="levelPicker">
-          <button class="level-picker-button" id="levelButton" type="button" aria-haspopup="listbox" aria-expanded="false">
-            <span class="level-picker-label" id="levelButtonLabel">Loading</span>
-            <span class="level-picker-meta" id="levelButtonMeta">0回</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 9l6 6 6-6"></path>
-            </svg>
-          </button>
-          <div class="level-menu hidden" id="levelMenu" role="listbox" aria-label="レベル選択"></div>
-        </div>
-        <select class="lane-count-select" id="laneCountSelect" aria-label="レーン数">
-          <option value="1">1レーン</option>
-          <option value="2">2レーン</option>
-          <option value="3" selected>3レーン</option>
-        </select>
         <div class="sound-control">
           <button class="icon-button" id="soundButton" type="button" title="音設定" aria-label="音設定" aria-expanded="false">
             <svg class="sound-on-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -112,42 +96,81 @@
           <div class="overlay-panel">
             <h2 id="overlayTitle">Word Rush</h2>
             <p id="overlayCopy">Loading</p>
-            <div class="title-details" id="titleDetails">
-              <div class="title-current">
-                <div>
-                  <span>現在のレベル</span>
-                  <strong id="currentLevelValue">小学校3年</strong>
-                </div>
-                <div>
-                  <span>レーン</span>
-                  <strong id="currentLaneValue">3レーン</strong>
-                </div>
-              </div>
-              <div class="title-guide">
-                <span>落ちてくる英単語に合う訳を選びます。</span>
-                <span>キー操作は 1-9、タップやクリックにも対応しています。</span>
-                <span>レベル・レーン・音量は次回起動時にも反映されます。</span>
-              </div>
-              <div class="settings-grid" aria-label="速度と時間の設定">
-                <label>
-                  <span>正解時 +秒</span>
-                  <input id="correctTimeInput" type="number" min="0" max="20" step="0.1">
-                </label>
-                <label>
-                  <span>連続正解係数</span>
-                  <input id="streakTimeInput" type="number" min="0" max="5" step="0.1">
-                </label>
-                <label>
-                  <span>失敗時 -秒</span>
-                  <input id="wrongTimeInput" type="number" min="0" max="20" step="0.1">
-                </label>
-              </div>
-            </div>
-            <div class="review-list" id="reviewList"></div>
             <div class="overlay-actions">
               <button class="start-button" id="startButton" type="button" disabled>Start</button>
               <button class="secondary-button hidden" id="overlayBackButton" type="button">戻る</button>
             </div>
+            <div class="overlay-scroll">
+              <div class="title-details" id="titleDetails">
+                <input id="levelSelect" type="hidden" value="elementary3">
+                <div class="title-control-grid">
+                  <div class="title-control">
+                    <span>レベル</span>
+                    <div class="level-picker" id="levelPicker">
+                      <button class="level-picker-button" id="levelButton" type="button" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="level-picker-label" id="levelButtonLabel">Loading</span>
+                        <span class="level-picker-meta" id="levelButtonMeta">0回</span>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M6 9l6 6 6-6"></path>
+                        </svg>
+                      </button>
+                      <div class="level-menu hidden" id="levelMenu" role="listbox" aria-label="レベル選択"></div>
+                    </div>
+                  </div>
+                  <label class="title-control">
+                    <span>レーン</span>
+                    <select class="lane-count-select" id="laneCountSelect" aria-label="レーン数">
+                      <option value="1">1レーン</option>
+                      <option value="2" selected>2レーン</option>
+                      <option value="3">3レーン</option>
+                    </select>
+                  </label>
+                </div>
+                <div class="title-current">
+                  <div>
+                    <span>現在の設定</span>
+                    <strong id="currentLevelValue">小学校3年</strong>
+                  </div>
+                  <div>
+                    <span>レーン</span>
+                    <strong id="currentLaneValue">3レーン</strong>
+                  </div>
+                </div>
+                <div class="title-guide">
+                  <span>落ちてくる英単語を素早く消していくゲームです。</span>
+                  <span>落ちてくる英単語の正しい日本語訳を選んでください。</span>
+                  <span>1-9のキー操作、タップやクリックで選びます。</span>
+                  <span>ブラウザのキャッシュを消去するとハイスコアやプレイ回数などが消えます。</span>
+                </div>
+                <div class="settings-grid" aria-label="速度と時間の設定">
+                  <label>
+                    <span>正解時 +秒</span>
+                    <input id="correctTimeInput" type="number" min="0" max="20" step="0.001">
+                  </label>
+                  <label>
+                    <span>連続正解係数</span>
+                    <input id="streakTimeInput" type="number" min="0" max="5" step="0.001">
+                  </label>
+                  <label>
+                    <span>失敗時 -秒</span>
+                    <input id="wrongTimeInput" type="number" min="0" max="20" step="0.001">
+                  </label>
+                </div>
+              </div>
+              <div class="review-list" id="reviewList"></div>
+            </div>
+          </div>
+        </div>
+        <div class="link-modal hidden" id="linkModal" aria-hidden="true">
+          <div class="link-modal-panel" role="dialog" aria-modal="true" aria-labelledby="linkModalTitle">
+            <div class="link-modal-bar">
+              <strong id="linkModalTitle">Reference</strong>
+              <div class="link-modal-actions">
+                <a id="linkModalOpen" href="#" target="_blank" rel="noopener noreferrer">別タブで開く</a>
+                <button id="linkModalClose" type="button" aria-label="閉じる">×</button>
+              </div>
+            </div>
+            <iframe id="linkModalFrame" title="Reference page" loading="lazy"></iframe>
           </div>
         </div>
       </div>
@@ -155,10 +178,16 @@
       <aside class="hud">
         <section class="timer-block">
           <div class="label-row">
-            <span>Time</span>
+            <span>Time Left</span>
             <span id="levelLabel">小学校3年</span>
           </div>
-          <div class="timer-value" id="timeValue">60</div>
+          <div class="timer-line">
+            <div class="timer-value" id="timeValue">60</div>
+            <div class="elapsed-value">
+              <span>Played</span>
+              <strong id="elapsedValue">0:00</strong>
+            </div>
+          </div>
           <div class="meter" aria-hidden="true">
             <div class="meter-fill" id="timeBar"></div>
           </div>

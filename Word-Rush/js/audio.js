@@ -4,6 +4,7 @@ export class AudioEngine {
     this.bgmTracks = bgmTracks;
     this.currentTrackId = "";
     this.bgmAudio = null;
+    this.bgmFadeTimer = 0;
     this.ctx = null;
     this.master = null;
     this.supported = Boolean(globalThis.AudioContext || globalThis.webkitAudioContext);
@@ -30,15 +31,22 @@ export class AudioEngine {
   }
 
   bgmVolume() {
-    return this.clampVolume(this.settings().bgmVolume, 0.16);
+    return this.clampVolume(this.settings().bgmVolume, 0.15);
   }
 
   sfxVolume() {
-    return this.clampVolume(this.settings().sfxVolume, 0.52);
+    return this.clampVolume(this.settings().sfxVolume, 0.7);
   }
 
   setTracks(tracks) {
     this.bgmTracks = Array.isArray(tracks) ? tracks : [];
+  }
+
+  clearBgmFade() {
+    if (this.bgmFadeTimer) {
+      clearInterval(this.bgmFadeTimer);
+      this.bgmFadeTimer = 0;
+    }
   }
 
   init() {
@@ -147,6 +155,7 @@ export class AudioEngine {
     if (!this.bgmEnabled() || getPhase() !== "playing" || !globalThis.Audio) {
       return;
     }
+    this.clearBgmFade();
     const track = this.chooseTrack(Boolean(options.restart));
     const audio = this.ensureBgmAudio(track, Boolean(options.restart));
     if (!audio) {
@@ -174,9 +183,29 @@ export class AudioEngine {
   }
 
   stopBgm() {
+    this.clearBgmFade();
     if (this.bgmAudio) {
       this.bgmAudio.pause();
     }
+  }
+
+  fadeOutBgm(durationMs = 1200) {
+    if (!this.bgmAudio || this.bgmAudio.paused) {
+      return;
+    }
+    this.clearBgmFade();
+    const audio = this.bgmAudio;
+    const startVolume = audio.volume;
+    const startedAt = Date.now();
+    this.bgmFadeTimer = setInterval(() => {
+      const progress = Math.min(1, (Date.now() - startedAt) / durationMs);
+      audio.volume = startVolume * (1 - progress);
+      if (progress >= 1) {
+        this.clearBgmFade();
+        audio.pause();
+        audio.volume = this.bgmVolume();
+      }
+    }, 40);
   }
 
   playSfx(kind) {
