@@ -23,11 +23,18 @@ const STREAK_SPEED_BONUS = 0.95;
 const CARD_FADE_IN_TIME = 0.18;
 const CARD_FADE_OUT_TIME = 0.24;
 const ANSWER_REVEAL_TIME = 1.12;
-const LANE_KEYS = [
-  ["1", "2", "3"],
-  ["4", "5", "6"],
-  ["7", "8", "9"]
-];
+const LANE_KEY_LAYOUTS = {
+  1: [["a", "s", "d"]],
+  2: [
+    ["a", "s", "d"],
+    ["j", "k", "l"]
+  ],
+  3: [
+    ["a", "s", "d"],
+    ["f", "g", "h"],
+    ["j", "k", "l"]
+  ]
+};
 
 export class VocabSprintGame {
   constructor() {
@@ -74,11 +81,6 @@ export class VocabSprintGame {
       streakTime: document.getElementById("streakTimeInput"),
       wrongTime: document.getElementById("wrongTimeInput"),
       reviewList: document.getElementById("reviewList"),
-      linkModal: document.getElementById("linkModal"),
-      linkModalTitle: document.getElementById("linkModalTitle"),
-      linkModalFrame: document.getElementById("linkModalFrame"),
-      linkModalOpen: document.getElementById("linkModalOpen"),
-      linkModalClose: document.getElementById("linkModalClose"),
       startButton: document.getElementById("startButton"),
       overlayBackButton: document.getElementById("overlayBackButton"),
       time: document.getElementById("timeValue"),
@@ -919,22 +921,11 @@ export class VocabSprintGame {
       eijiro.target = "_blank";
       eijiro.rel = "noopener noreferrer";
       eijiro.textContent = "英辞郎";
-      eijiro.addEventListener("click", (event) => {
-        event.preventDefault();
-        this.openReferenceModal(`英辞郎: ${item.english}`, eijiro.href);
-      });
       const youglish = document.createElement("a");
       youglish.href = `https://youglish.com/pronounce/${encoded}/english`;
       youglish.target = "_blank";
       youglish.rel = "noopener noreferrer";
       youglish.textContent = "YouGlish";
-      youglish.addEventListener("click", (event) => {
-        event.preventDefault();
-        this.openReferenceModal(`YouGlish: ${item.english}`, youglish.href, {
-          kind: "youglish",
-          query: item.english
-        });
-      });
       links.append(eijiro, youglish);
       row.append(english, japanese, links);
       this.ui.reviewList.appendChild(row);
@@ -964,6 +955,7 @@ export class VocabSprintGame {
   renderAnswerButtons() {
     this.ui.answers.innerHTML = "";
     this.ui.answers.style.setProperty("--lane-count", String(this.activeLaneCount()));
+    const laneKeys = this.laneKeys();
     for (let laneIndex = 0; laneIndex < this.activeLaneCount(); laneIndex += 1) {
       const lane = this.state.lanes[laneIndex];
       const panel = document.createElement("section");
@@ -975,7 +967,7 @@ export class VocabSprintGame {
       const left = document.createElement("span");
       left.textContent = `Lane ${laneIndex + 1}`;
       const right = document.createElement("span");
-      right.textContent = LANE_KEYS[laneIndex].join(" ");
+      right.textContent = laneKeys[laneIndex].join(" ");
       title.append(left, right);
       panel.appendChild(title);
 
@@ -999,7 +991,7 @@ export class VocabSprintGame {
 
         const key = document.createElement("span");
         key.className = "key";
-        key.textContent = LANE_KEYS[laneIndex][optionIndex];
+        key.textContent = laneKeys[laneIndex][optionIndex];
         const word = document.createElement("span");
         word.className = "word";
         const optionText = lane ? lane.options[optionIndex] : "";
@@ -1715,57 +1707,6 @@ export class VocabSprintGame {
     this.ui.gameShell.classList.remove("is-obscured");
   }
 
-  escapeHtml(value) {
-    return String(value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  youglishWidgetHtml(query) {
-    const escapedQuery = this.escapeHtml(query);
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    html, body { height: 100%; margin: 0; background: #fff; color: #172022; font-family: system-ui, sans-serif; }
-    body { display: grid; min-height: 100%; }
-    .youglish-widget { display: block; min-height: 100%; }
-  </style>
-</head>
-<body>
-  <a id="yg-widget-0" class="youglish-widget" data-query="${escapedQuery}" data-lang="english" data-components="8415" data-bkg-color="theme_light" data-restricted="1" rel="nofollow" href="https://youglish.com">Visit YouGlish.com</a>
-  <script async src="https://youglish.com/public/emb/widget.js" charset="utf-8"></script>
-</body>
-</html>`;
-  }
-
-  openReferenceModal(title, url, options = {}) {
-    this.setLevelMenuOpen(false);
-    this.setSoundPanelOpen(false);
-    this.ui.linkModalTitle.textContent = title;
-    this.ui.linkModalOpen.href = url;
-    if (options.kind === "youglish") {
-      this.ui.linkModalFrame.removeAttribute("src");
-      this.ui.linkModalFrame.srcdoc = this.youglishWidgetHtml(options.query || title);
-    } else {
-      this.ui.linkModalFrame.removeAttribute("srcdoc");
-      this.ui.linkModalFrame.src = url;
-    }
-    this.ui.linkModal.classList.remove("hidden");
-    this.ui.linkModal.setAttribute("aria-hidden", "false");
-  }
-
-  closeReferenceModal() {
-    this.ui.linkModal.classList.add("hidden");
-    this.ui.linkModal.setAttribute("aria-hidden", "true");
-    this.ui.linkModalFrame.removeAttribute("srcdoc");
-    this.ui.linkModalFrame.src = "about:blank";
-  }
-
   accuracy() {
     const total = this.state.correct + this.state.wrong + this.state.miss;
     return total ? Math.round((this.state.correct / total) * 100) : 0;
@@ -1832,9 +1773,14 @@ export class VocabSprintGame {
     requestAnimationFrame((time) => this.gameLoop(time));
   }
 
+  laneKeys() {
+    return LANE_KEY_LAYOUTS[this.activeLaneCount()] || LANE_KEY_LAYOUTS[MAX_LANES];
+  }
+
   keyToLane(key) {
+    const laneKeys = this.laneKeys();
     for (let lane = 0; lane < this.activeLaneCount(); lane += 1) {
-      const option = LANE_KEYS[lane].indexOf(key);
+      const option = laneKeys[lane].indexOf(key);
       if (option >= 0) {
         return { lane, option };
       }
@@ -1861,12 +1807,6 @@ export class VocabSprintGame {
     this.ui.overlayBackButton.addEventListener("click", () => this.returnToTitle());
     this.ui.backButton.addEventListener("click", () => this.returnToTitle());
     this.ui.levelButton.addEventListener("click", () => this.toggleLevelMenu());
-    this.ui.linkModalClose.addEventListener("click", () => this.closeReferenceModal());
-    this.ui.linkModal.addEventListener("click", (event) => {
-      if (event.target === this.ui.linkModal) {
-        this.closeReferenceModal();
-      }
-    });
     this.ui.soundButton.addEventListener("click", () => this.toggleSoundPanel());
     this.ui.themeButton?.addEventListener("click", () => this.toggleTheme());
     this.ui.pauseButton.addEventListener("click", () => this.pauseGame());
@@ -1917,11 +1857,6 @@ export class VocabSprintGame {
     this.ui.overlayScroll.addEventListener("scroll", () => this.positionLevelMenu());
     window.addEventListener("keydown", (event) => {
       const key = event.key.toLowerCase();
-      if (key === "escape" && !this.ui.linkModal.classList.contains("hidden")) {
-        event.preventDefault();
-        this.closeReferenceModal();
-        return;
-      }
       if (key === "escape" && (this.state.levelMenuOpen || this.state.soundPanelOpen)) {
         event.preventDefault();
         this.setLevelMenuOpen(false);
