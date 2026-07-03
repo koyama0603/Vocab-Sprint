@@ -892,6 +892,10 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   gap: 4px;
 }
 
+.overlay.result-mode .review-detail {
+  font-size: 10.5px;
+}
+
 .overlay.result-mode .review-status {
   font-size: 10.5px;
 }
@@ -954,7 +958,11 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 
 .review-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  grid-template-areas:
+    "word meaning"
+    "status links"
+    "detail detail";
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
@@ -973,10 +981,49 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 }
 
 .review-status {
-  color: var(--red);
+  grid-area: status;
   font-size: 11px;
   font-weight: 950;
   white-space: nowrap;
+}
+
+.review-status.is-alert {
+  color: var(--red);
+}
+
+.review-status.is-ok {
+  color: var(--cyan);
+}
+
+.review-detail {
+  grid-area: detail;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+  line-height: 1.28;
+}
+
+.review-detail-text {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.review-detail-main,
+.review-detail-sample {
+  min-width: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.review-detail-sample {
+  color: var(--ink);
+  opacity: 0.86;
 }
 
 .review-item span,
@@ -986,18 +1033,21 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 }
 
 .review-word {
+  grid-area: word;
   color: var(--ink);
   font-weight: 900;
 }
 
 .review-meaning {
+  grid-area: meaning;
   color: var(--muted);
   font-weight: 760;
 }
 
 .review-links {
+  grid-area: links;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: 6px;
 }
 
@@ -1522,25 +1572,11 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   }
 
   .overlay.result-mode .review-item {
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     align-items: start;
-  }
-
-  .overlay.result-mode .review-status {
-    grid-column: 1 / 2;
-  }
-
-  .overlay.result-mode .review-links {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
   }
 
   .overlay.title-mode .overlay-panel h2 {
     font-size: 34px;
-  }
-
-  .review-item {
-    grid-template-columns: minmax(0, 1fr);
   }
 
   .review-links {

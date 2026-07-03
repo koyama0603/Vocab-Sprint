@@ -52,20 +52,37 @@ async function readWords(level) {
   }
 
   const rows = parseCsv(await response.text());
+  const header = (rows[0] || []).map((value, index) => {
+    const text = String(value || "").trim();
+    return index === 0 ? text.replace(/^\uFEFF/, "") : text;
+  });
   const body = rows.slice(1);
   const seen = new Set();
   const words = [];
+  const columnIndex = (name, fallback) => {
+    const index = header.indexOf(name);
+    return index >= 0 ? index : fallback;
+  };
+  const idIndex = columnIndex("id", -1);
+  const englishIndex = columnIndex("english", idIndex >= 0 ? 1 : 0);
+  const japaneseIndex = columnIndex("japanese", idIndex >= 0 ? 2 : 1);
+  const detailIndex = columnIndex("detail", idIndex >= 0 ? 3 : 2);
+  const sampleIndex = columnIndex("sample", idIndex >= 0 ? 4 : 3);
+  const sampleJpnIndex = columnIndex("sample-jpn", idIndex >= 0 ? 5 : -1);
 
   for (const row of body) {
-    const english = String(row[0] || "").trim();
-    const japanese = String(row[1] || "").trim();
-    const detail = String(row[2] || "").trim();
-    const key = english.toLowerCase();
+    const id = idIndex >= 0 ? String(row[idIndex] || "").trim() : "";
+    const english = String(row[englishIndex] || "").trim();
+    const japanese = String(row[japaneseIndex] || "").trim();
+    const detail = String(row[detailIndex] || "").trim();
+    const sample = String(row[sampleIndex] || "").trim();
+    const sampleJpn = sampleJpnIndex >= 0 ? String(row[sampleJpnIndex] || "").trim() : "";
+    const key = id || english.toLowerCase();
     if (!english || !japanese || seen.has(key)) {
       continue;
     }
     seen.add(key);
-    words.push({ english, japanese, detail });
+    words.push({ id, english, japanese, detail, sample, sampleJpn });
   }
 
   if (words.length < 3) {

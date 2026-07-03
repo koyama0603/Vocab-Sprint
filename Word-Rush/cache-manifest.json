@@ -1,6 +1,6 @@
 {
-  "version": "9e96deebd9109ee6",
-  "generatedAt": "2026-07-03T07:52:40.416Z",
+  "version": "740e368d44b476ca",
+  "generatedAt": "2026-07-03T15:44:42.395Z",
   "assets": [
     {
       "url": "assets/audio/Coffee_and_Logic.mp3",
@@ -24,147 +24,147 @@
     },
     {
       "url": "css/styles.css",
-      "revision": "e1e826d99bd14294a0c3b861553fa9faa9f10329b3cab2df1bee677e0625959d"
+      "revision": "dfdcc5dd6a47447c626c40ff26aff6f16856d7605d15203744e2c85d76728aa2"
     },
     {
       "url": "data/a1-part1.csv",
-      "revision": "ac5aec98992b01d61578d7b350fdfdcb79351c5fd7b1e3e4a477be7fca526463"
+      "revision": "5af94a552ee074438ccb96b8b25b0ef588dc7161af847f0b5483a1386f2af63a"
     },
     {
       "url": "data/a1-part2.csv",
-      "revision": "69cd158f09fa4cafe710016e19b0300e9cef6eece79384d72e3f40de543a16d3"
+      "revision": "a5a23909d567022a47dae0aea307c35e9786af89326dc9af529ccef035c56cf5"
     },
     {
       "url": "data/a1-part3.csv",
-      "revision": "b7a093342c1a07f86ea2a59676cae3cb46a2bdd34f82ba00bc247f7e340153cb"
+      "revision": "d8bb8ea5947ba20278c08bacd9c8064ba9f9f2c194c12e31a7b32e208640a15a"
     },
     {
       "url": "data/a1-part4.csv",
-      "revision": "d8aa1f463df4c8affcdf56df63cf7804aea7255a534f007fd7ea23584565d5f3"
+      "revision": "95b85f57dab064cfcdaceeb28cc5c5af8755edce02ed850e4350b86d021be704"
     },
     {
       "url": "data/a1-part5.csv",
-      "revision": "63c79821a4b3587b14cca5774f2eb1beae00a8a206d0169858cc76660d1fac3e"
+      "revision": "82bb97e4d63b73f54dbb087b977f5d12376b8e635c4a90e02927fdc2dce28eb4"
     },
     {
       "url": "data/a1-part6.csv",
-      "revision": "90ba82b01b8388fbd7f90c8a1d663dd4a322a12059378389e9dc88393e468f95"
+      "revision": "5647b23ea31599c5f0a3f741cbe4f1033b93d216a176343c75183fc98e6edf7a"
     },
     {
       "url": "data/a1-part7.csv",
-      "revision": "5801b742a2e70f9d67af9eb7e1b832a03e1ab05909bd910f25f833830c29faa1"
+      "revision": "a5702ed0e435dcd9923a765ac149ca8f3d37c515ba6bdf4cbd81afbf4a5d016b"
     },
     {
       "url": "data/a1-part8.csv",
-      "revision": "f3bd3f976f7befcc7fe9f2606a880b1e8c4fa503769b95b2bb72ebcb31c33f05"
+      "revision": "065bc29dfdc68fc50a2a9c09b645422c025f5a68b7d49a115020985f99cb6dbb"
     },
     {
       "url": "data/a2-part1.csv",
-      "revision": "3906b51b2a2fdcd0289157958c99b8b4ab1425788af5905a7a37744e460f2c5e"
+      "revision": "0f24e106542adbcdab7413d742408d675c38b40dfc1765ba2796abab566cf43b"
     },
     {
       "url": "data/a2-part2.csv",
-      "revision": "dea4c91612d62a35a6d7fee165e1a13b5f63e8c2bfd70894676afd943bcb4134"
+      "revision": "c5e2018fc70626b6586e994b6c2e95f68cc2134420cd1c9a305f4abaf9077155"
     },
     {
       "url": "data/a2-part3.csv",
-      "revision": "3f5f06a0e4b545a91905bbeb7487526e8c6cb2e69dd9c14af6aa48b6dce1366b"
+      "revision": "e1cc4d29a4d1661341fad27fe544962f1a826e98ad403a3508ee2176129971d1"
     },
     {
       "url": "data/a2-part4.csv",
-      "revision": "3442e47dbe7b7a15b9cebeb92e562ea55c2102cc4f07c27e08d553d9a93e533c"
+      "revision": "d65886f002e9e8ca0fbf39df86faf88e51d87f88d49f5a3e957f665c1989abd0"
     },
     {
       "url": "data/a2-part5.csv",
-      "revision": "763dae4ad751f0cc47a1d3f2b2b558b6b3901d593ad3c554070f6d551b2ac778"
+      "revision": "d6122ac23cb70e75f4832843f70da7a4dd016a70835874e8d7ef6209b7838aba"
     },
     {
       "url": "data/a2-part6.csv",
-      "revision": "6ed3cbc38a9d4f25b8c9ee59b2a8164a3852ea3f46174591fbd0a7d0339511f6"
+      "revision": "6f593bae41b8dc229a0a72d728f1b47309c6f18a1e622f55431b560335add40b"
     },
     {
       "url": "data/a2-part7.csv",
-      "revision": "88d23bff35d62b1943fe1357ed3701919de94a2c6d041a359e540dcb569825d4"
+      "revision": "b918c5a16b830d5e86846d238fd6f29730e4dacc6fd5639353917cac84b0ef92"
     },
     {
       "url": "data/b1-part1.csv",
-      "revision": "8ebdc91e80520043b4d9e91088f7e8948092e3d21d0bbe54823166d9d17bfce3"
+      "revision": "5a458f993cfd1d88518be99f7561904d5e650c5c26335a34de1fb55305acb194"
     },
     {
       "url": "data/b1-part2.csv",
-      "revision": "77a82457593f1f3494060dc8b71dd8c7fc889b1400d5650cc114b394f35b7cfd"
+      "revision": "2a4c9205f4b7992a39c5e3b99aaec33bed304c9af61a9c73225c3951af40bd20"
     },
     {
       "url": "data/b1-part3.csv",
-      "revision": "5448f1dab7fd1fc3d8bc7a11a5e770b29e86e32910a32add168e7f6d6f066688"
+      "revision": "09d4f3c0e3cc34bf9f3fa8847a6f2493ae9d60f462dd3435076c558fd8b0446c"
     },
     {
       "url": "data/b1-part4.csv",
-      "revision": "6a7a92c83b1088b838242750c4e757eab5e954436ea8b36bb46dc26bce73f682"
+      "revision": "789fc7bfcb25cbb6d37a689c9a2dd82c1d75dfea5e96074510e20ebc12dbe52f"
     },
     {
       "url": "data/b1-part5.csv",
-      "revision": "0b4c6524709f3b04824f0e0a7f832ca0cd3d465c864d6b2d41b41ffbf893612f"
+      "revision": "37989f4c3344d456a1a0fe73d56edb101e2b84e1bd55592bfd808c41ed806868"
     },
     {
       "url": "data/b1-part6.csv",
-      "revision": "916b8d2fd3248e04ab746ea256e4c57568af1f60654b5d44379ef2c2696cd4e1"
+      "revision": "ea43abb93a2ac5695aff7421bca9f77c162d3a55cb967f139403220dde81cc27"
     },
     {
       "url": "data/b1-part7.csv",
-      "revision": "36c0ea0d440d7133a3fb7a66a4fc1880bcbbf3d71424c6c643fc99025de38936"
+      "revision": "cb9290f81ec81914a869f271b231253d53aa6fbbc66b18730c9f6cfa07fd18a9"
     },
     {
       "url": "data/b1-part8.csv",
-      "revision": "1de99da64c1a178ab0e02907f045dcaefd9b6f5b9179f2f52f7483cd92e8bff7"
+      "revision": "e799eb4e8880cd95d860cfbb0c894a56e3d2b16dc0e497cacc10e75eb048ef14"
     },
     {
       "url": "data/b2-part1.csv",
-      "revision": "f697af0c6792e4ff69afb20a868fb9914f306c0341046d54d634e68dc33ccd9f"
+      "revision": "ce10bb96abc2ca72673a9a264e12ee7341e357f9370faca6f578a8228a3803f4"
     },
     {
       "url": "data/b2-part2.csv",
-      "revision": "d78d794fe402fa7e446e5ce735fc37c077d784f0e2673652ba590643c244fd70"
+      "revision": "c8d730e796ac8468132319af9f7addcf0a962cd576ee194f793051f86da12147"
     },
     {
       "url": "data/b2-part3.csv",
-      "revision": "53dbdeacc9d753180463b3d00e8d7fa233affe276251da5b7fbd6a12459f1fb9"
+      "revision": "9af56fd4506060ca19d1b76f824eb046e5cb6a3444587b77fbb5c6222747db51"
     },
     {
       "url": "data/b2-part4.csv",
-      "revision": "d91b903f60d3dbf94c150e5c84736fb578be58523626ae122fb122f912367f44"
+      "revision": "d42822c28ba563342122df652631380f6a2b8b2bc1cc6f97f299838783c866b2"
     },
     {
       "url": "data/b2-part5.csv",
-      "revision": "c8af0ef619d832da111674ea2c11fb32309942db249349f393c4207771275369"
+      "revision": "4b0e192b9c9074e620ad7c23e50a68c2e17380448a6f24940e98f7237706964c"
     },
     {
       "url": "data/b2-part6.csv",
-      "revision": "58bf2fe85f0bc6bba8edd6d620ed5a5a3ca6dd75a5a58f07bf98aa89cfab7149"
+      "revision": "402f49f1e764b7eb2fa569beed7973d883a145ddb06f51884494ef4618440302"
     },
     {
       "url": "data/b2-part7.csv",
-      "revision": "6d144a47c1a5043d9899f0e7d346dbe9fcb07c0ffa1e1a28003b624f864d6ec6"
+      "revision": "8d5d0721b62e2853cd347d7a052f9055df0423879469e3e2504f9fd131ff4289"
     },
     {
       "url": "data/c1-part1.csv",
-      "revision": "b52cfb996eba410ab705f719c708ab34e7a02c1f0d173d21704131cbc001c36c"
+      "revision": "9147f92015c615df0f754f23d9871fbe80e8d6516cc747a97433e0985ddf3042"
     },
     {
       "url": "data/c1-part2.csv",
-      "revision": "964857e73703ebd847f793f74ce0ceb7905b6150d25862508462616d9d434f6d"
+      "revision": "2480b8c7d71499c223036523debced112a740f3b3be46b2dd5730b927a45c339"
     },
     {
       "url": "data/c1-part3.csv",
-      "revision": "89f982b09a8436212f49b008abc79755fd0bcdcfff074e38cee22b8b3717ee86"
+      "revision": "cfc5b485d79da78e6f125a8976ecb40509efc6eb3804041622b61e259bf01acd"
     },
     {
       "url": "data/c1-part4.csv",
-      "revision": "b26d8187e9326a0fb2cf9c2eac8437e4909cd6efe8134894ee4823e0d08fdeaa"
+      "revision": "67a8acf09680978b5106a77e970dae61be1ae125a5d9be509680e78394e40251"
     },
     {
       "url": "data/c2-part1.csv",
-      "revision": "630caf4d02738c2b53b04a73d20e5556181e1393c0a0ca33971c732f1ec802ef"
+      "revision": "057bcfdb8f9433ae6c980b3af25cd8b3e5d1e3231d497bc9011cc5806da7148a"
     },
     {
       "url": "data/manifest.json",
@@ -184,11 +184,11 @@
     },
     {
       "url": "js/config.js",
-      "revision": "7a2ccc851f3e0aa4b120475e3338e00a315a8da092c533d9164a78e0df4f5a2d"
+      "revision": "69d99b1d790c47d154fb550065ec5525877977a74bc1c802ea09dde10197c058"
     },
     {
       "url": "js/game.js",
-      "revision": "d0e3bf359638993faa444c0444437a21da7f5c71e724352ba275e3820663fa9d"
+      "revision": "60d986cfc770fb9734af73b42e71e492171c491fc166494c873092c7c5fffe4b"
     },
     {
       "url": "js/levels.config.js",
@@ -204,7 +204,7 @@
     },
     {
       "url": "js/words.js",
-      "revision": "ffa58409c0d79d8e54f3f4308e9f0423f2adf2fd5516b62f3013203205f78d02"
+      "revision": "7887ede796121f091799da15f5c6927876a827fee8a56cfc9c6a283523411d51"
     },
     {
       "url": "sw.js",

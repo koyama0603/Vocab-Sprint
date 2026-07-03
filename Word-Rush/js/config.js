@@ -4,6 +4,7 @@ export const SETTINGS_STORAGE_KEY = "word-rush-settings";
 export const PREFERENCES_STORAGE_KEY = "word-rush-preferences";
 export const PLAY_COUNTS_STORAGE_KEY = "word-rush-play-counts";
 export const THEME_STORAGE_KEY = "word-rush-theme";
+export const WORD_STATS_STORAGE_KEY = "word-rush-word-stats-v1";
 
 export const DEFAULT_PREFERENCES = {
   levelId: "a1-part1",

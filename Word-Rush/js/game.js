@@ -7,7 +7,8 @@ import {
   PLAY_COUNTS_STORAGE_KEY,
   PREFERENCES_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
-  THEME_STORAGE_KEY
+  THEME_STORAGE_KEY,
+  WORD_STATS_STORAGE_KEY
 } from "./config.js";
 import { LEVELS, LEVEL_MAP } from "./levels.js";
 import { loadWords } from "./words.js";
@@ -132,6 +133,7 @@ export class VocabSprintGame {
       wordBag: [],
       settings: this.readSettings(),
       playCounts: this.readPlayCounts(),
+      wordStats: this.readWordStats(),
       theme: this.readTheme(),
       levelMenuOpen: false,
       soundPanelOpen: false,
@@ -267,6 +269,69 @@ export class VocabSprintGame {
     } catch {
       // Ignore storage failures in private or locked-down contexts.
     }
+  }
+
+  readWordStats() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(WORD_STATS_STORAGE_KEY) || "{}");
+      if (!parsed || typeof parsed !== "object") {
+        return {};
+      }
+      const stats = {};
+      for (const [id, value] of Object.entries(parsed)) {
+        if (!id || !value || typeof value !== "object") {
+          continue;
+        }
+        const correct = Math.max(0, Number(value.correct) || 0);
+        const incorrect = Math.max(0, Number(value.incorrect) || 0);
+        const seen = Math.max(correct + incorrect, Number(value.seen) || 0);
+        const lastSeen = Math.max(0, Number(value.lastSeen) || 0);
+        stats[id] = { correct, incorrect, seen, lastSeen };
+      }
+      return stats;
+    } catch {
+      return {};
+    }
+  }
+
+  saveWordStats() {
+    try {
+      localStorage.setItem(WORD_STATS_STORAGE_KEY, JSON.stringify(this.state.wordStats));
+    } catch {
+      // Ignore storage failures in private or locked-down contexts.
+    }
+  }
+
+  wordStatKey(word) {
+    if (!word) {
+      return "";
+    }
+    return word?.id || `${this.state.levelId}:${word?.english || ""}`;
+  }
+
+  wordStatFor(word) {
+    return this.state.wordStats[this.wordStatKey(word)] || {
+      correct: 0,
+      incorrect: 0,
+      seen: 0,
+      lastSeen: 0
+    };
+  }
+
+  updateWordStats(word, outcome) {
+    const key = this.wordStatKey(word);
+    if (!key) {
+      return;
+    }
+    const current = this.wordStatFor(word);
+    const next = {
+      correct: current.correct + (outcome === "correct" ? 1 : 0),
+      incorrect: current.incorrect + (outcome === "incorrect" ? 1 : 0),
+      seen: current.seen + (outcome === "seen" ? 1 : 0),
+      lastSeen: outcome === "seen" ? Date.now() : current.lastSeen
+    };
+    this.state.wordStats[key] = next;
+    this.saveWordStats();
   }
 
   createSeed() {
@@ -699,6 +764,33 @@ export class VocabSprintGame {
     this.state.wordBag = this.shuffle(this.state.words);
   }
 
+  wordPriorityWeight(word) {
+    const stats = this.wordStatFor(word);
+    const seen = Math.max(0, stats.seen || 0);
+    const incorrectRate = seen ? (stats.incorrect || 0) / seen : 0;
+    const lowSeenWeight = 8 / Math.sqrt(seen + 1);
+    const unseenWeight = seen ? 0 : 10;
+    const incorrectWeight = incorrectRate * 4 + Math.min(5, stats.incorrect || 0) * 0.35;
+    const staleDays = stats.lastSeen ? Math.min(14, (Date.now() - stats.lastSeen) / 86400000) : 14;
+    return Math.max(0.1, 1 + unseenWeight + lowSeenWeight + incorrectWeight + staleDays * 0.08);
+  }
+
+  weightedWord(candidates) {
+    const weights = candidates.map((word) => this.wordPriorityWeight(word));
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    if (total <= 0) {
+      return candidates[this.randInt(0, candidates.length - 1)];
+    }
+    let roll = this.nextRandom() * total;
+    for (let i = 0; i < candidates.length; i += 1) {
+      roll -= weights[i];
+      if (roll <= 0) {
+        return candidates[i];
+      }
+    }
+    return candidates[candidates.length - 1];
+  }
+
   chooseWord(excludedWords = []) {
     const words = this.state.words;
     if (!words.length) {
@@ -708,39 +800,22 @@ export class VocabSprintGame {
       return words[0];
     }
 
-    if (!this.state.wordBag.length) {
-      this.resetWordBag();
-    }
-
     const blocked = new Set([
       ...this.state.recent,
       ...excludedWords.filter(Boolean)
     ]);
-    const deferred = [];
-    let candidate = null;
-    const tries = Math.max(words.length, this.state.wordBag.length);
-
-    for (let i = 0; i < tries; i += 1) {
-      const next = this.state.wordBag.shift();
-      if (!next) {
-        if (!this.state.wordBag.length) {
-          this.resetWordBag();
-        }
-        continue;
-      }
-      if (!blocked.has(next.english)) {
-        candidate = next;
-        break;
-      }
-      deferred.push(next);
+    const isBlocked = (word) => blocked.has(this.wordStatKey(word)) || blocked.has(word.english);
+    let candidates = words.filter((word) => !isBlocked(word));
+    if (!candidates.length) {
+      const active = new Set(excludedWords.filter(Boolean));
+      candidates = words.filter((word) => !active.has(this.wordStatKey(word)) && !active.has(word.english));
+    }
+    if (!candidates.length) {
+      candidates = words;
     }
 
-    if (!candidate) {
-      candidate = deferred.shift() || this.state.wordBag.shift() || words[this.randInt(0, words.length - 1)];
-    }
-
-    this.state.wordBag.push(...deferred);
-    this.state.recent.push(candidate.english);
+    const candidate = this.weightedWord(candidates);
+    this.state.recent.push(this.wordStatKey(candidate));
     this.state.recent = this.state.recent.slice(-this.recentWindowSize());
     return candidate;
   }
@@ -765,11 +840,14 @@ export class VocabSprintGame {
     }
     const activeWords = this.state.lanes
       .filter((lane) => lane && lane.index !== index)
-      .map((lane) => lane.word?.english)
+      .map((lane) => this.wordStatKey(lane.word))
       .filter(Boolean);
     const word = this.chooseWord(activeWords);
     if (!word) {
       return;
+    }
+    if (this.state.phase === "playing") {
+      this.updateWordStats(word, "seen");
     }
     const options = this.makeOptions(word.japanese);
     const startY = CARD_START_Y + (startAbove ? this.randInt(0, 20) : this.randInt(0, 12));
@@ -819,7 +897,9 @@ export class VocabSprintGame {
   }
 
   recordReview(word, picked, reason) {
-    const existing = this.state.review.get(word.english);
+    this.updateWordStats(word, reason === "correct" ? "correct" : "incorrect");
+    const reviewKey = this.wordStatKey(word);
+    const existing = this.state.review.get(reviewKey);
     if (existing) {
       existing.count += 1;
       existing.correct += reason === "correct" ? 1 : 0;
@@ -827,12 +907,18 @@ export class VocabSprintGame {
       existing.miss += reason === "miss" ? 1 : 0;
       existing.reason = existing.wrong || existing.miss ? reason : "correct";
       existing.lastPicked = picked;
+      existing.detail = existing.detail || word.detail;
+      existing.sample = existing.sample || word.sample;
+      existing.sampleJpn = existing.sampleJpn || word.sampleJpn;
       return;
     }
-    this.state.review.set(word.english, {
+    this.state.review.set(reviewKey, {
+      id: word.id,
       english: word.english,
       japanese: word.japanese,
       detail: word.detail,
+      sample: word.sample,
+      sampleJpn: word.sampleJpn,
       lastPicked: picked,
       reason,
       count: 1,
@@ -930,9 +1016,8 @@ export class VocabSprintGame {
       if (item.wrong || item.miss) {
         row.classList.add("needs-review");
       }
-      if (item.detail) {
-        row.title = item.detail;
-      }
+      const detailText = this.reviewDetailText(item);
+      row.title = `${item.english} ： ${item.japanese}\n${detailText}`;
       const english = document.createElement("strong");
       english.className = "review-word";
       english.textContent = item.count > 1 ? `${item.english} x${item.count}` : item.english;
@@ -942,20 +1027,30 @@ export class VocabSprintGame {
       const status = document.createElement("span");
       status.className = "review-status";
       if (item.wrong || item.miss) {
+        status.classList.add("is-alert");
         const parts = [];
         if (item.wrong) {
-          parts.push(`Wrong ${item.wrong}`);
+          parts.push(`Wrong x ${item.wrong}`);
         }
         if (item.miss) {
-          parts.push(`Miss ${item.miss}`);
+          parts.push(`Miss x ${item.miss}`);
         }
         status.textContent = parts.join(" / ");
       } else {
+        status.classList.add("is-ok");
         status.textContent = "OK";
       }
+      const detail = this.createReviewDetail(item.detail || "", item.sample || "", item.sampleJpn || "");
       const links = document.createElement("span");
       links.className = "review-links";
       const encoded = encodeURIComponent(item.english);
+      const wiktionary = this.createLookupButton({
+        label: "Wiktionary",
+        service: "Wiktionary",
+        word: item.english,
+        url: `https://ja.wiktionary.org/wiki/${encoded}`,
+        mode: "iframe"
+      });
       const eijiro = this.createLookupButton({
         label: "英辞郎",
         service: "英辞郎",
@@ -970,10 +1065,41 @@ export class VocabSprintGame {
         url: `https://youglish.com/pronounce/${encoded}/english`,
         mode: "youglish"
       });
-      links.append(eijiro, youglish);
-      row.append(english, japanese, status, links);
+      links.append(wiktionary, eijiro, youglish);
+      row.append(english, japanese, status, detail, links);
       this.ui.reviewList.appendChild(row);
     }
+  }
+
+  reviewDetailText(item) {
+    const parts = [];
+    if (item.detail) {
+      parts.push(item.detail);
+    }
+    if (item.sample) {
+      const sampleJpn = item.sampleJpn ? `（${item.sampleJpn}）` : "";
+      parts.push(`例: ${item.sample}${sampleJpn}`);
+    }
+    return parts.join(" / ") || "解説なし";
+  }
+
+  createReviewDetail(detailText, sampleText = "", sampleJpnText = "") {
+    const detail = document.createElement("span");
+    detail.className = "review-detail";
+    const body = document.createElement("span");
+    body.className = "review-detail-text";
+    const main = document.createElement("span");
+    main.className = "review-detail-main";
+    main.textContent = detailText || "解説なし";
+    body.appendChild(main);
+    if (sampleText) {
+      const sample = document.createElement("span");
+      sample.className = "review-detail-sample";
+      sample.textContent = `例: ${sampleText}${sampleJpnText ? `（${sampleJpnText}）` : ""}`;
+      body.appendChild(sample);
+    }
+    detail.appendChild(body);
+    return detail;
   }
 
   createLookupButton({ label, service, word, url, mode }) {
