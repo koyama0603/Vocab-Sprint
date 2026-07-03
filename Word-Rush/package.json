@@ -3,8 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "generate:data": "node scripts/generate-word-data.mjs",
+    "generate:data": "node scripts/generate-cefr-word-data.mjs",
+    "generate:legacy-data": "node scripts/generate-word-data.mjs",
+    "generate:cefr-data": "node scripts/generate-cefr-word-data.mjs",
     "generate:audio": "node scripts/generate-audio-manifest.mjs",
+    "generate:cache": "node scripts/generate-cache-manifest.mjs",
     "serve": "node scripts/serve.mjs"
   }
 }

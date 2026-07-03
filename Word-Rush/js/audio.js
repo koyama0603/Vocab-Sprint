@@ -4,6 +4,9 @@ export class AudioEngine {
     this.bgmTracks = bgmTracks;
     this.currentTrackId = "";
     this.bgmAudio = null;
+    this.bgmAudioPool = new Map();
+    this.bgmSources = new Map();
+    this.bgmGain = null;
     this.bgmFadeTimer = 0;
     this.ctx = null;
     this.master = null;
@@ -64,6 +67,42 @@ export class AudioEngine {
       this.ctx.resume().catch(() => {});
     }
     return true;
+  }
+
+  setBgmLevel(value) {
+    const volume = this.clampVolume(value, this.bgmVolume());
+    if (this.bgmGain) {
+      this.bgmGain.gain.value = volume;
+      for (const audio of this.bgmAudioPool.values()) {
+        audio.volume = 1;
+      }
+    } else {
+      for (const audio of this.bgmAudioPool.values()) {
+        audio.volume = volume;
+      }
+      if (!this.bgmAudioPool.size && this.bgmAudio) {
+        this.bgmAudio.volume = volume;
+      }
+    }
+  }
+
+  setupBgmGain(audio) {
+    if (!audio || !this.supported || !this.init()) {
+      if (audio) {
+        audio.volume = this.bgmVolume();
+      }
+      return;
+    }
+    if (!this.bgmGain) {
+      this.bgmGain = this.ctx.createGain();
+      this.bgmGain.connect(this.ctx.destination);
+    }
+    if (!this.bgmSources.has(audio)) {
+      const source = this.ctx.createMediaElementSource(audio);
+      source.connect(this.bgmGain);
+      this.bgmSources.set(audio, source);
+    }
+    this.setBgmLevel(this.bgmVolume());
   }
 
   noteToFrequency(note) {
@@ -133,22 +172,29 @@ export class AudioEngine {
     if (!track || !globalThis.Audio) {
       return null;
     }
-    if (!this.bgmAudio) {
-      this.bgmAudio = new Audio(track.src);
-      this.bgmAudio.loop = true;
-      this.bgmAudio.preload = "auto";
+    let audio = this.bgmAudioPool.get(track.id);
+    if (!audio) {
+      audio = new Audio();
+      audio.loop = true;
+      audio.preload = "auto";
+      audio.src = track.src;
+      audio.load();
+      this.bgmAudioPool.set(track.id, audio);
+    }
+    if (this.bgmAudio && this.bgmAudio !== audio) {
+      this.bgmAudio.pause();
     }
     if (this.currentTrackId !== track.id) {
-      this.bgmAudio.src = track.src;
       restart = true;
     }
+    this.bgmAudio = audio;
     this.currentTrackId = track.id;
-    this.bgmAudio.loop = true;
-    this.bgmAudio.volume = this.bgmVolume();
+    audio.loop = true;
+    this.setupBgmGain(audio);
     if (restart) {
-      this.bgmAudio.currentTime = 0;
+      audio.currentTime = 0;
     }
-    return this.bgmAudio;
+    return audio;
   }
 
   startBgm(getPhase, options = {}) {
@@ -171,7 +217,7 @@ export class AudioEngine {
       this.master.gain.value = this.sfxVolume();
     }
     if (this.bgmAudio) {
-      this.bgmAudio.volume = this.bgmVolume();
+      this.setBgmLevel(this.bgmVolume());
     }
     if (!this.bgmEnabled()) {
       this.stopBgm();
@@ -184,8 +230,8 @@ export class AudioEngine {
 
   stopBgm() {
     this.clearBgmFade();
-    if (this.bgmAudio) {
-      this.bgmAudio.pause();
+    for (const audio of this.bgmAudioPool.values()) {
+      audio.pause();
     }
   }
 
@@ -195,15 +241,15 @@ export class AudioEngine {
     }
     this.clearBgmFade();
     const audio = this.bgmAudio;
-    const startVolume = audio.volume;
+    const startVolume = this.bgmGain ? this.bgmGain.gain.value : audio.volume;
     const startedAt = Date.now();
     this.bgmFadeTimer = setInterval(() => {
       const progress = Math.min(1, (Date.now() - startedAt) / durationMs);
-      audio.volume = startVolume * (1 - progress);
+      this.setBgmLevel(startVolume * (1 - progress));
       if (progress >= 1) {
         this.clearBgmFade();
         audio.pause();
-        audio.volume = this.bgmVolume();
+        this.setBgmLevel(this.bgmVolume());
       }
     }, 40);
   }

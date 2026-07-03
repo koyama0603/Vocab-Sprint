@@ -1,0 +1,214 @@
+{
+  "version": "9e96deebd9109ee6",
+  "generatedAt": "2026-07-03T07:52:40.416Z",
+  "assets": [
+    {
+      "url": "assets/audio/Coffee_and_Logic.mp3",
+      "revision": "99cc8ae55e23d55a527cf0f0afb68627168be1f69a4028f160de235552e7d6bb"
+    },
+    {
+      "url": "assets/audio/Data_Pulse.mp3",
+      "revision": "70e2a502ce461f9240114071790b4c5229eb59316a30b7220493b6ba89f3acf1"
+    },
+    {
+      "url": "assets/audio/Quiet_Between_Pages.mp3",
+      "revision": "ed094322b10c9dd1d7a466d40de75ea8bec98b12786b46aa9d87bfb8ad7dcfad"
+    },
+    {
+      "url": "assets/audio/The_Last_Puzzle_Piece.mp3",
+      "revision": "5d8605de8a973ae8114241e48ed3c54440b4d24520716eb36bfc53d4d607d890"
+    },
+    {
+      "url": "assets/icons/favicon.svg",
+      "revision": "675dd9c590d5f00d8c0d60e453dde756b5d0bd4be6c8cb669847293599e0e1b2"
+    },
+    {
+      "url": "css/styles.css",
+      "revision": "e1e826d99bd14294a0c3b861553fa9faa9f10329b3cab2df1bee677e0625959d"
+    },
+    {
+      "url": "data/a1-part1.csv",
+      "revision": "ac5aec98992b01d61578d7b350fdfdcb79351c5fd7b1e3e4a477be7fca526463"
+    },
+    {
+      "url": "data/a1-part2.csv",
+      "revision": "69cd158f09fa4cafe710016e19b0300e9cef6eece79384d72e3f40de543a16d3"
+    },
+    {
+      "url": "data/a1-part3.csv",
+      "revision": "b7a093342c1a07f86ea2a59676cae3cb46a2bdd34f82ba00bc247f7e340153cb"
+    },
+    {
+      "url": "data/a1-part4.csv",
+      "revision": "d8aa1f463df4c8affcdf56df63cf7804aea7255a534f007fd7ea23584565d5f3"
+    },
+    {
+      "url": "data/a1-part5.csv",
+      "revision": "63c79821a4b3587b14cca5774f2eb1beae00a8a206d0169858cc76660d1fac3e"
+    },
+    {
+      "url": "data/a1-part6.csv",
+      "revision": "90ba82b01b8388fbd7f90c8a1d663dd4a322a12059378389e9dc88393e468f95"
+    },
+    {
+      "url": "data/a1-part7.csv",
+      "revision": "5801b742a2e70f9d67af9eb7e1b832a03e1ab05909bd910f25f833830c29faa1"
+    },
+    {
+      "url": "data/a1-part8.csv",
+      "revision": "f3bd3f976f7befcc7fe9f2606a880b1e8c4fa503769b95b2bb72ebcb31c33f05"
+    },
+    {
+      "url": "data/a2-part1.csv",
+      "revision": "3906b51b2a2fdcd0289157958c99b8b4ab1425788af5905a7a37744e460f2c5e"
+    },
+    {
+      "url": "data/a2-part2.csv",
+      "revision": "dea4c91612d62a35a6d7fee165e1a13b5f63e8c2bfd70894676afd943bcb4134"
+    },
+    {
+      "url": "data/a2-part3.csv",
+      "revision": "3f5f06a0e4b545a91905bbeb7487526e8c6cb2e69dd9c14af6aa48b6dce1366b"
+    },
+    {
+      "url": "data/a2-part4.csv",
+      "revision": "3442e47dbe7b7a15b9cebeb92e562ea55c2102cc4f07c27e08d553d9a93e533c"
+    },
+    {
+      "url": "data/a2-part5.csv",
+      "revision": "763dae4ad751f0cc47a1d3f2b2b558b6b3901d593ad3c554070f6d551b2ac778"
+    },
+    {
+      "url": "data/a2-part6.csv",
+      "revision": "6ed3cbc38a9d4f25b8c9ee59b2a8164a3852ea3f46174591fbd0a7d0339511f6"
+    },
+    {
+      "url": "data/a2-part7.csv",
+      "revision": "88d23bff35d62b1943fe1357ed3701919de94a2c6d041a359e540dcb569825d4"
+    },
+    {
+      "url": "data/b1-part1.csv",
+      "revision": "8ebdc91e80520043b4d9e91088f7e8948092e3d21d0bbe54823166d9d17bfce3"
+    },
+    {
+      "url": "data/b1-part2.csv",
+      "revision": "77a82457593f1f3494060dc8b71dd8c7fc889b1400d5650cc114b394f35b7cfd"
+    },
+    {
+      "url": "data/b1-part3.csv",
+      "revision": "5448f1dab7fd1fc3d8bc7a11a5e770b29e86e32910a32add168e7f6d6f066688"
+    },
+    {
+      "url": "data/b1-part4.csv",
+      "revision": "6a7a92c83b1088b838242750c4e757eab5e954436ea8b36bb46dc26bce73f682"
+    },
+    {
+      "url": "data/b1-part5.csv",
+      "revision": "0b4c6524709f3b04824f0e0a7f832ca0cd3d465c864d6b2d41b41ffbf893612f"
+    },
+    {
+      "url": "data/b1-part6.csv",
+      "revision": "916b8d2fd3248e04ab746ea256e4c57568af1f60654b5d44379ef2c2696cd4e1"
+    },
+    {
+      "url": "data/b1-part7.csv",
+      "revision": "36c0ea0d440d7133a3fb7a66a4fc1880bcbbf3d71424c6c643fc99025de38936"
+    },
+    {
+      "url": "data/b1-part8.csv",
+      "revision": "1de99da64c1a178ab0e02907f045dcaefd9b6f5b9179f2f52f7483cd92e8bff7"
+    },
+    {
+      "url": "data/b2-part1.csv",
+      "revision": "f697af0c6792e4ff69afb20a868fb9914f306c0341046d54d634e68dc33ccd9f"
+    },
+    {
+      "url": "data/b2-part2.csv",
+      "revision": "d78d794fe402fa7e446e5ce735fc37c077d784f0e2673652ba590643c244fd70"
+    },
+    {
+      "url": "data/b2-part3.csv",
+      "revision": "53dbdeacc9d753180463b3d00e8d7fa233affe276251da5b7fbd6a12459f1fb9"
+    },
+    {
+      "url": "data/b2-part4.csv",
+      "revision": "d91b903f60d3dbf94c150e5c84736fb578be58523626ae122fb122f912367f44"
+    },
+    {
+      "url": "data/b2-part5.csv",
+      "revision": "c8af0ef619d832da111674ea2c11fb32309942db249349f393c4207771275369"
+    },
+    {
+      "url": "data/b2-part6.csv",
+      "revision": "58bf2fe85f0bc6bba8edd6d620ed5a5a3ca6dd75a5a58f07bf98aa89cfab7149"
+    },
+    {
+      "url": "data/b2-part7.csv",
+      "revision": "6d144a47c1a5043d9899f0e7d346dbe9fcb07c0ffa1e1a28003b624f864d6ec6"
+    },
+    {
+      "url": "data/c1-part1.csv",
+      "revision": "b52cfb996eba410ab705f719c708ab34e7a02c1f0d173d21704131cbc001c36c"
+    },
+    {
+      "url": "data/c1-part2.csv",
+      "revision": "964857e73703ebd847f793f74ce0ceb7905b6150d25862508462616d9d434f6d"
+    },
+    {
+      "url": "data/c1-part3.csv",
+      "revision": "89f982b09a8436212f49b008abc79755fd0bcdcfff074e38cee22b8b3717ee86"
+    },
+    {
+      "url": "data/c1-part4.csv",
+      "revision": "b26d8187e9326a0fb2cf9c2eac8437e4909cd6efe8134894ee4823e0d08fdeaa"
+    },
+    {
+      "url": "data/c2-part1.csv",
+      "revision": "630caf4d02738c2b53b04a73d20e5556181e1393c0a0ca33971c732f1ec802ef"
+    },
+    {
+      "url": "data/manifest.json",
+      "revision": "00b17975eb7beff6ec65e4a31c45e320d27578aab83f82f77af49bac3c2a60fc"
+    },
+    {
+      "url": "index.html",
+      "revision": "335f32f625442d8ce6b41f4a2950a7b5815c271816e075b42e630fb49e60f2ce"
+    },
+    {
+      "url": "js/audio-tracks.js",
+      "revision": "746beeb52c6ff61d2f94e8cb8c285014c53b7d54a052781931f5c5e682bd52d0"
+    },
+    {
+      "url": "js/audio.js",
+      "revision": "7992a7e0c87658390d12ac0c04d8e1e79f266ec742f99cdb5beba46c847702b6"
+    },
+    {
+      "url": "js/config.js",
+      "revision": "7a2ccc851f3e0aa4b120475e3338e00a315a8da092c533d9164a78e0df4f5a2d"
+    },
+    {
+      "url": "js/game.js",
+      "revision": "d0e3bf359638993faa444c0444437a21da7f5c71e724352ba275e3820663fa9d"
+    },
+    {
+      "url": "js/levels.config.js",
+      "revision": "e5a23824fa1e5a46f0a9d811bd57eeac11b471c834520ac034c59d124db34abd"
+    },
+    {
+      "url": "js/levels.js",
+      "revision": "fd9ac1ed7dc4e95279824688da2ead118f8668eff0cb4b18881ef53e42b71198"
+    },
+    {
+      "url": "js/main.js",
+      "revision": "6fa97d7e4019223651285bccacfb05d5c23780a3ca3f3999e45924bbb5cc4171"
+    },
+    {
+      "url": "js/words.js",
+      "revision": "ffa58409c0d79d8e54f3f4308e9f0423f2adf2fd5516b62f3013203205f78d02"
+    },
+    {
+      "url": "sw.js",
+      "revision": "6eedf4f570d774e9f15c8e7f7645afeb132a20d301e2774aa204fe507d1159c0"
+    }
+  ]
+}

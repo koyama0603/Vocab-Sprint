@@ -6,13 +6,13 @@ export const PLAY_COUNTS_STORAGE_KEY = "word-rush-play-counts";
 export const THEME_STORAGE_KEY = "word-rush-theme";
 
 export const DEFAULT_PREFERENCES = {
-  levelId: "elementary3",
+  levelId: "a1-part1",
   laneCount: 2
 };
 
 export const DEFAULT_GAME_SETTINGS = {
-  correctTimeBonus: 0.1,
-  streakTimeMultiplier: 0.01,
+  correctTimeBonus: 0.11,
+  streakTimeMultiplier: 0.02,
   wrongTimePenalty: 0.7,
   bgmEnabled: true,
   sfxEnabled: true,

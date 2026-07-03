@@ -1,202 +1,578 @@
-[
-  {
-    "id": "elementary3",
-    "label": "小学校3年",
-    "file": "data/elementary3.csv",
-    "words": 150,
-    "first": "able",
-    "last": "below"
+{
+  "generatedAt": "2026-07-03T07:51:57.635Z",
+  "totalWords": 7000,
+  "sources": {
+    "primary": [
+      "CEFR-J Vocabulary Profile 1.5",
+      "Octanove Vocabulary Profile C1/C2 1.0"
+    ],
+    "frequencyAndProperNounFilter": "Words-CEFR-Dataset",
+    "translations": "EJDict"
   },
-  {
-    "id": "elementary4",
-    "label": "小学校4年",
-    "file": "data/elementary4.csv",
-    "words": 150,
-    "first": "autumn",
-    "last": "coffee"
-  },
-  {
-    "id": "elementary5",
-    "label": "小学校5年",
-    "file": "data/elementary5.csv",
-    "words": 200,
-    "first": "collar",
-    "last": "gate"
-  },
-  {
-    "id": "elementary6",
-    "label": "小学校6年",
-    "file": "data/elementary6.csv",
-    "words": 200,
-    "first": "engine",
-    "last": "expense"
-  },
-  {
-    "id": "junior1-part1",
-    "label": "中学校1年 Part1",
-    "file": "data/junior1-part1.csv",
-    "words": 200,
-    "first": "ground",
-    "last": "on"
-  },
-  {
-    "id": "junior1-part2",
-    "label": "中学校1年 Part2",
-    "file": "data/junior1-part2.csv",
-    "words": 200,
-    "first": "once",
-    "last": "price"
-  },
-  {
-    "id": "junior1-part3",
-    "label": "中学校1年 Part3",
-    "file": "data/junior1-part3.csv",
-    "words": 200,
-    "first": "pride",
-    "last": "expensive"
-  },
-  {
-    "id": "junior2-part1",
-    "label": "中学校2年 Part1",
-    "file": "data/junior2-part1.csv",
-    "words": 200,
-    "first": "possess",
-    "last": "tire"
-  },
-  {
-    "id": "junior2-part2",
-    "label": "中学校2年 Part2",
-    "file": "data/junior2-part2.csv",
-    "words": 200,
-    "first": "store",
-    "last": "with"
-  },
-  {
-    "id": "junior2-part3",
-    "label": "中学校2年 Part3",
-    "file": "data/junior2-part3.csv",
-    "words": 200,
-    "first": "quantity",
-    "last": "membership"
-  },
-  {
-    "id": "junior3-part1",
-    "label": "中学校3年 Part1",
-    "file": "data/junior3-part1.csv",
-    "words": 200,
-    "first": "whatever",
-    "last": "sate"
-  },
-  {
-    "id": "junior3-part2",
-    "label": "中学校3年 Part2",
-    "file": "data/junior3-part2.csv",
-    "words": 200,
-    "first": "abut",
-    "last": "rink"
-  },
-  {
-    "id": "junior3-part3",
-    "label": "中学校3年 Part3",
-    "file": "data/junior3-part3.csv",
-    "words": 200,
-    "first": "tomb",
-    "last": "pout"
-  },
-  {
-    "id": "high1-part1",
-    "label": "高校1年 Part1",
-    "file": "data/high1-part1.csv",
-    "words": 210,
-    "first": "snob",
-    "last": "pawn"
-  },
-  {
-    "id": "high1-part2",
-    "label": "高校1年 Part2",
-    "file": "data/high1-part2.csv",
-    "words": 210,
-    "first": "sled",
-    "last": "memo"
-  },
-  {
-    "id": "high1-part3",
-    "label": "高校1年 Part3",
-    "file": "data/high1-part3.csv",
-    "words": 210,
-    "first": "miff",
-    "last": "york"
-  },
-  {
-    "id": "high1-part4",
-    "label": "高校1年 Part4",
-    "file": "data/high1-part4.csv",
-    "words": 210,
-    "first": "coca",
-    "last": "trey"
-  },
-  {
-    "id": "high2-part1",
-    "label": "高校2年 Part1",
-    "file": "data/high2-part1.csv",
-    "words": 210,
-    "first": "visor",
-    "last": "weeny"
-  },
-  {
-    "id": "high2-part2",
-    "label": "高校2年 Part2",
-    "file": "data/high2-part2.csv",
-    "words": 210,
-    "first": "abate",
-    "last": "fudge"
-  },
-  {
-    "id": "high2-part3",
-    "label": "高校2年 Part3",
-    "file": "data/high2-part3.csv",
-    "words": 210,
-    "first": "jinks",
-    "last": "surly"
-  },
-  {
-    "id": "high2-part4",
-    "label": "高校2年 Part4",
-    "file": "data/high2-part4.csv",
-    "words": 210,
-    "first": "tipsy",
-    "last": "sworn"
-  },
-  {
-    "id": "high3-part1",
-    "label": "高校3年 Part1",
-    "file": "data/high3-part1.csv",
-    "words": 210,
-    "first": "syrup",
-    "last": "eaves"
-  },
-  {
-    "id": "high3-part2",
-    "label": "高校3年 Part2",
-    "file": "data/high3-part2.csv",
-    "words": 210,
-    "first": "filch",
-    "last": "tulle"
-  },
-  {
-    "id": "high3-part3",
-    "label": "高校3年 Part3",
-    "file": "data/high3-part3.csv",
-    "words": 210,
-    "first": "baize",
-    "last": "tizzy"
-  },
-  {
-    "id": "high3-part4",
-    "label": "高校3年 Part4",
-    "file": "data/high3-part4.csv",
-    "words": 210,
-    "first": "tryst",
-    "last": "kasha"
-  }
-]
+  "levels": [
+    {
+      "id": "a1-part1",
+      "label": "A1 Part1",
+      "file": "data/a1-part1.csv",
+      "cefr": "A1",
+      "part": 1,
+      "words": 200,
+      "first": "the",
+      "last": "off",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A1"
+      ]
+    },
+    {
+      "id": "a1-part2",
+      "label": "A1 Part2",
+      "file": "data/a1-part2.csv",
+      "cefr": "A1",
+      "part": 2,
+      "words": 200,
+      "first": "keep",
+      "last": "poor",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A1"
+      ]
+    },
+    {
+      "id": "a1-part3",
+      "label": "A1 Part3",
+      "file": "data/a1-part3.csv",
+      "cefr": "A1",
+      "part": 3,
+      "words": 200,
+      "first": "middle",
+      "last": "carefully",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A1"
+      ]
+    },
+    {
+      "id": "a1-part4",
+      "label": "A1 Part4",
+      "file": "data/a1-part4.csv",
+      "cefr": "A1",
+      "part": 4,
+      "words": 200,
+      "first": "yellow",
+      "last": "grammar",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A1"
+      ]
+    },
+    {
+      "id": "a1-part5",
+      "label": "A1 Part5",
+      "file": "data/a1-part5.csv",
+      "cefr": "A1",
+      "part": 5,
+      "words": 200,
+      "first": "vacation",
+      "last": "provide",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A1",
+        "A2"
+      ]
+    },
+    {
+      "id": "a1-part6",
+      "label": "A1 Part6",
+      "file": "data/a1-part6.csv",
+      "cefr": "A1",
+      "part": 6,
+      "words": 200,
+      "first": "follow",
+      "last": "opportunity",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A2"
+      ]
+    },
+    {
+      "id": "a1-part7",
+      "label": "A1 Part7",
+      "file": "data/a1-part7.csv",
+      "cefr": "A1",
+      "part": 7,
+      "words": 200,
+      "first": "feature",
+      "last": "competition",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A2"
+      ]
+    },
+    {
+      "id": "a1-part8",
+      "label": "A1 Part8",
+      "file": "data/a1-part8.csv",
+      "cefr": "A1",
+      "part": 8,
+      "words": 200,
+      "first": "scene",
+      "last": "complain",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A2"
+      ]
+    },
+    {
+      "id": "a2-part1",
+      "label": "A2 Part1",
+      "file": "data/a2-part1.csv",
+      "cefr": "A2",
+      "part": 1,
+      "words": 200,
+      "first": "creative",
+      "last": "crazy",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A2"
+      ]
+    },
+    {
+      "id": "a2-part2",
+      "label": "A2 Part2",
+      "file": "data/a2-part2.csv",
+      "cefr": "A2",
+      "part": 2,
+      "words": 200,
+      "first": "kit",
+      "last": "quiz",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A2"
+      ]
+    },
+    {
+      "id": "a2-part3",
+      "label": "A2 Part3",
+      "file": "data/a2-part3.csv",
+      "cefr": "A2",
+      "part": 3,
+      "words": 200,
+      "first": "unhealthy",
+      "last": "maintain",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "A2",
+        "B1"
+      ]
+    },
+    {
+      "id": "a2-part4",
+      "label": "A2 Part4",
+      "file": "data/a2-part4.csv",
+      "cefr": "A2",
+      "part": 4,
+      "words": 200,
+      "first": "administration",
+      "last": "relatively",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "a2-part5",
+      "label": "A2 Part5",
+      "file": "data/a2-part5.csv",
+      "cefr": "A2",
+      "part": 5,
+      "words": 200,
+      "first": "engine",
+      "last": "emphasis",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "a2-part6",
+      "label": "A2 Part6",
+      "file": "data/a2-part6.csv",
+      "cefr": "A2",
+      "part": 6,
+      "words": 200,
+      "first": "weapon",
+      "last": "trail",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "a2-part7",
+      "label": "A2 Part7",
+      "file": "data/a2-part7.csv",
+      "cefr": "A2",
+      "part": 7,
+      "words": 200,
+      "first": "breast",
+      "last": "organ",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "b1-part1",
+      "label": "B1 Part1",
+      "file": "data/b1-part1.csv",
+      "cefr": "B1",
+      "part": 1,
+      "words": 200,
+      "first": "similarity",
+      "last": "laughter",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "b1-part2",
+      "label": "B1 Part2",
+      "file": "data/b1-part2.csv",
+      "cefr": "B1",
+      "part": 2,
+      "words": 200,
+      "first": "timely",
+      "last": "regain",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "b1-part3",
+      "label": "B1 Part3",
+      "file": "data/b1-part3.csv",
+      "cefr": "B1",
+      "part": 3,
+      "words": 200,
+      "first": "grouping",
+      "last": "careless",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "b1-part4",
+      "label": "B1 Part4",
+      "file": "data/b1-part4.csv",
+      "cefr": "B1",
+      "part": 4,
+      "words": 200,
+      "first": "sadness",
+      "last": "boredom",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "b1-part5",
+      "label": "B1 Part5",
+      "file": "data/b1-part5.csv",
+      "cefr": "B1",
+      "part": 5,
+      "words": 200,
+      "first": "inconvenient",
+      "last": "ironing",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1"
+      ]
+    },
+    {
+      "id": "b1-part6",
+      "label": "B1 Part6",
+      "file": "data/b1-part6.csv",
+      "cefr": "B1",
+      "part": 6,
+      "words": 200,
+      "first": "mountaintop",
+      "last": "precede",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B1",
+        "B2"
+      ]
+    },
+    {
+      "id": "b1-part7",
+      "label": "B1 Part7",
+      "file": "data/b1-part7.csv",
+      "cefr": "B1",
+      "part": 7,
+      "words": 200,
+      "first": "lease",
+      "last": "tail",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "b1-part8",
+      "label": "B1 Part8",
+      "file": "data/b1-part8.csv",
+      "cefr": "B1",
+      "part": 8,
+      "words": 200,
+      "first": "probable",
+      "last": "digest",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "b2-part1",
+      "label": "B2 Part1",
+      "file": "data/b2-part1.csv",
+      "cefr": "B2",
+      "part": 1,
+      "words": 200,
+      "first": "dock",
+      "last": "hollow",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "b2-part2",
+      "label": "B2 Part2",
+      "file": "data/b2-part2.csv",
+      "cefr": "B2",
+      "part": 2,
+      "words": 200,
+      "first": "clerical",
+      "last": "stereotype",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "b2-part3",
+      "label": "B2 Part3",
+      "file": "data/b2-part3.csv",
+      "cefr": "B2",
+      "part": 3,
+      "words": 200,
+      "first": "bud",
+      "last": "hesitation",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "b2-part4",
+      "label": "B2 Part4",
+      "file": "data/b2-part4.csv",
+      "cefr": "B2",
+      "part": 4,
+      "words": 200,
+      "first": "bidding",
+      "last": "chaotic",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "b2-part5",
+      "label": "B2 Part5",
+      "file": "data/b2-part5.csv",
+      "cefr": "B2",
+      "part": 5,
+      "words": 200,
+      "first": "feat",
+      "last": "obsess",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "b2-part6",
+      "label": "B2 Part6",
+      "file": "data/b2-part6.csv",
+      "cefr": "B2",
+      "part": 6,
+      "words": 200,
+      "first": "teaspoon",
+      "last": "gunshot",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "b2-part7",
+      "label": "B2 Part7",
+      "file": "data/b2-part7.csv",
+      "cefr": "B2",
+      "part": 7,
+      "words": 200,
+      "first": "outgrow",
+      "last": "predicative",
+      "sources": [
+        "cefr-j"
+      ],
+      "sourceCefrLevels": [
+        "B2"
+      ]
+    },
+    {
+      "id": "c1-part1",
+      "label": "C1 Part1",
+      "file": "data/c1-part1.csv",
+      "cefr": "C1",
+      "part": 1,
+      "words": 200,
+      "first": "mechanism",
+      "last": "speculative",
+      "sources": [
+        "octanove"
+      ],
+      "sourceCefrLevels": [
+        "C1"
+      ]
+    },
+    {
+      "id": "c1-part2",
+      "label": "C1 Part2",
+      "file": "data/c1-part2.csv",
+      "cefr": "C1",
+      "part": 2,
+      "words": 200,
+      "first": "persecution",
+      "last": "aquarium",
+      "sources": [
+        "octanove"
+      ],
+      "sourceCefrLevels": [
+        "C1"
+      ]
+    },
+    {
+      "id": "c1-part3",
+      "label": "C1 Part3",
+      "file": "data/c1-part3.csv",
+      "cefr": "C1",
+      "part": 3,
+      "words": 200,
+      "first": "scorn",
+      "last": "gig",
+      "sources": [
+        "octanove"
+      ],
+      "sourceCefrLevels": [
+        "C1"
+      ]
+    },
+    {
+      "id": "c1-part4",
+      "label": "C1 Part4",
+      "file": "data/c1-part4.csv",
+      "cefr": "C1",
+      "part": 4,
+      "words": 200,
+      "first": "hibernate",
+      "last": "proprietary",
+      "sources": [
+        "octanove"
+      ],
+      "sourceCefrLevels": [
+        "C1",
+        "C2"
+      ]
+    },
+    {
+      "id": "c2-part1",
+      "label": "C2 Part1",
+      "file": "data/c2-part1.csv",
+      "cefr": "C2",
+      "part": 1,
+      "words": 200,
+      "first": "prone",
+      "last": "resuscitation",
+      "sources": [
+        "octanove"
+      ],
+      "sourceCefrLevels": [
+        "C2"
+      ]
+    }
+  ]
+}

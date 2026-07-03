@@ -1,7 +1,8 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { LEVELS } from "../js/levels.js";
+import { parseCsv } from "../js/words.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -10,6 +11,7 @@ const DATA_DIR = path.join(ROOT, "data");
 const USER_AGENT = "Vocab-Sprint-Data-Generator";
 const EJDICT_RAW = "https://raw.githubusercontent.com/kujirahand/EJDict/master";
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
+const DEFAULT_TARGET_WORDS = 200;
 const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const BAD_MEANING_RE = /(複数形|短縮形|省略形|化学記号|略語|頭字語|過去形|過去分詞|古語|古詩|古期|廃語|俗語|卑語|差別|売春|娼婦|性交|性器|陰部|裸|麻薬|アヘン|糞|排泄|尿|殺人)/;
 const BAD_WORDS = new Set([
@@ -84,6 +86,20 @@ function csvCell(value) {
 function toCsv(rows) {
   const lines = [["english", "japanese"], ...rows.map((entry) => [entry.english, entry.japanese])];
   return `\uFEFF${lines.map((row) => row.map(csvCell).join(",")).join("\n")}\n`;
+}
+
+async function targetWordsForLevel(level) {
+  try {
+    const text = await readFile(path.join(ROOT, level.file), "utf8");
+    const rows = parseCsv(text).slice(1);
+    const words = rows.filter((row) => String(row[0] || "").trim() && String(row[1] || "").trim());
+    if (words.length >= 3) {
+      return words.length;
+    }
+  } catch {
+    // If the CSV does not exist yet, fall back to a conservative default.
+  }
+  return DEFAULT_TARGET_WORDS;
 }
 
 async function loadDictionary() {
@@ -173,7 +189,11 @@ async function main() {
   const dictionary = await loadDictionary();
   const ranks = await loadFrequencyRanks(dictionary);
   const candidates = buildCandidates(dictionary, ranks);
-  const required = LEVELS.reduce((sum, level) => sum + level.targetWords, 0);
+  const levelsWithTargets = await Promise.all(LEVELS.map(async (level) => ({
+    ...level,
+    targetWords: await targetWordsForLevel(level)
+  })));
+  const required = levelsWithTargets.reduce((sum, level) => sum + level.targetWords, 0);
 
   if (candidates.length < required) {
     throw new Error(`Only ${candidates.length} words available for ${required} requested words.`);
@@ -181,7 +201,7 @@ async function main() {
 
   let offset = 0;
   const manifest = [];
-  for (const level of LEVELS) {
+  for (const level of levelsWithTargets) {
     const entries = candidates.slice(offset, offset + level.targetWords);
     offset += level.targetWords;
     const filePath = path.join(ROOT, level.file);

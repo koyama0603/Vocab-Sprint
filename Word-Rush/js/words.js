@@ -43,8 +43,10 @@ export function parseCsv(text) {
   return rows;
 }
 
-export async function loadWords(level) {
-  const response = await fetch(level.file, { cache: "no-store" });
+const wordCache = new Map();
+
+async function readWords(level) {
+  const response = await fetch(level.file);
   if (!response.ok) {
     throw new Error(`CSV load failed: ${level.file}`);
   }
@@ -57,12 +59,13 @@ export async function loadWords(level) {
   for (const row of body) {
     const english = String(row[0] || "").trim();
     const japanese = String(row[1] || "").trim();
+    const detail = String(row[2] || "").trim();
     const key = english.toLowerCase();
     if (!english || !japanese || seen.has(key)) {
       continue;
     }
     seen.add(key);
-    words.push({ english, japanese });
+    words.push({ english, japanese, detail });
   }
 
   if (words.length < 3) {
@@ -70,4 +73,18 @@ export async function loadWords(level) {
   }
 
   return words;
+}
+
+export async function loadWords(level) {
+  const cacheKey = level.file;
+  if (!wordCache.has(cacheKey)) {
+    const request = readWords(level).catch((error) => {
+      wordCache.delete(cacheKey);
+      throw error;
+    });
+    wordCache.set(cacheKey, request);
+  }
+
+  const words = await wordCache.get(cacheKey);
+  return words.slice();
 }

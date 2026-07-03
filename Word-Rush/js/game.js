@@ -77,9 +77,6 @@ export class VocabSprintGame {
       titleDetails: document.getElementById("titleDetails"),
       currentLevel: document.getElementById("currentLevelValue"),
       currentLane: document.getElementById("currentLaneValue"),
-      correctTime: document.getElementById("correctTimeInput"),
-      streakTime: document.getElementById("streakTimeInput"),
-      wrongTime: document.getElementById("wrongTimeInput"),
       reviewList: document.getElementById("reviewList"),
       startButton: document.getElementById("startButton"),
       overlayBackButton: document.getElementById("overlayBackButton"),
@@ -94,7 +91,16 @@ export class VocabSprintGame {
       miss: document.getElementById("missValue"),
       accuracy: document.getElementById("accuracyValue"),
       wordCount: document.getElementById("wordCountValue"),
-      feed: document.getElementById("feed")
+      feed: document.getElementById("feed"),
+      lookupModal: document.getElementById("lookupModal"),
+      lookupBackdrop: document.getElementById("lookupBackdrop"),
+      lookupService: document.getElementById("lookupService"),
+      lookupTitle: document.getElementById("lookupTitle"),
+      lookupOpenLink: document.getElementById("lookupOpenLink"),
+      lookupClose: document.getElementById("lookupCloseButton"),
+      lookupFrame: document.getElementById("lookupFrame"),
+      lookupNote: document.getElementById("lookupNote"),
+      youglishHost: document.getElementById("youglishWidgetHost")
     };
 
     const preferences = this.readPreferences();
@@ -129,12 +135,18 @@ export class VocabSprintGame {
       theme: this.readTheme(),
       levelMenuOpen: false,
       soundPanelOpen: false,
+      lookupOpen: false,
       rngSeed: 1,
       loadError: ""
     };
 
     this.loadToken = 0;
     this.resizeObserver = null;
+    this.answerMeasureCanvas = null;
+    this.answerMeasureContext = null;
+    this.youglishWidget = null;
+    this.youglishWidgetReady = null;
+    this.youglishWidgetVersion = 0;
     this.audio = new AudioEngine(() => this.state.settings, BGM_TRACKS);
   }
 
@@ -144,6 +156,7 @@ export class VocabSprintGame {
     this.state.lastTime = performance.now();
     this.resizeCanvas();
     this.populateBgmTracks();
+    this.saveSettings();
     this.syncSettingsInputs();
     this.renderLevelPicker();
     this.renderFeed();
@@ -183,9 +196,9 @@ export class VocabSprintGame {
   normalizeSettings(settings = {}) {
     return {
       ...DEFAULT_GAME_SETTINGS,
-      correctTimeBonus: this.clampDecimalSetting(settings.correctTimeBonus, DEFAULT_GAME_SETTINGS.correctTimeBonus, 0, 20),
-      streakTimeMultiplier: this.clampDecimalSetting(settings.streakTimeMultiplier, DEFAULT_GAME_SETTINGS.streakTimeMultiplier, 0, 5),
-      wrongTimePenalty: this.clampDecimalSetting(settings.wrongTimePenalty, DEFAULT_GAME_SETTINGS.wrongTimePenalty, 0, 20),
+      correctTimeBonus: this.clampDecimalSetting(DEFAULT_GAME_SETTINGS.correctTimeBonus, 0.1, 0, 20),
+      streakTimeMultiplier: this.clampDecimalSetting(DEFAULT_GAME_SETTINGS.streakTimeMultiplier, 0.01, 0, 5),
+      wrongTimePenalty: this.clampDecimalSetting(DEFAULT_GAME_SETTINGS.wrongTimePenalty, 0.7, 0, 20),
       bgmEnabled: settings.bgmEnabled !== false,
       sfxEnabled: settings.sfxEnabled !== false,
       bgmVolume: this.clampNumber(settings.bgmVolume, DEFAULT_GAME_SETTINGS.bgmVolume, 0, 1),
@@ -204,7 +217,13 @@ export class VocabSprintGame {
 
   saveSettings() {
     try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(this.state.settings));
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+        bgmEnabled: this.state.settings.bgmEnabled,
+        sfxEnabled: this.state.settings.sfxEnabled,
+        bgmVolume: this.state.settings.bgmVolume,
+        sfxVolume: this.state.settings.sfxVolume,
+        bgmTrack: this.state.settings.bgmTrack
+      }));
     } catch {
       // Ignore storage failures in private or locked-down contexts.
     }
@@ -375,9 +394,6 @@ export class VocabSprintGame {
 
   syncSettingsInputs() {
     const settings = this.state.settings;
-    this.ui.correctTime.value = String(settings.correctTimeBonus);
-    this.ui.streakTime.value = String(settings.streakTimeMultiplier);
-    this.ui.wrongTime.value = String(settings.wrongTimePenalty);
     this.ui.bgmEnabled.checked = settings.bgmEnabled;
     this.ui.sfxEnabled.checked = settings.sfxEnabled;
     this.ui.bgmVolume.value = String(settings.bgmVolume);
@@ -390,9 +406,6 @@ export class VocabSprintGame {
   applySettingsFromInputs() {
     const next = this.normalizeSettings({
       ...this.state.settings,
-      correctTimeBonus: this.ui.correctTime.value,
-      streakTimeMultiplier: this.ui.streakTime.value,
-      wrongTimePenalty: this.ui.wrongTime.value,
       bgmEnabled: this.ui.bgmEnabled.checked,
       sfxEnabled: this.ui.sfxEnabled.checked,
       bgmVolume: this.ui.bgmVolume.value,
@@ -805,20 +818,27 @@ export class VocabSprintGame {
     }
   }
 
-  addReview(word, picked, reason) {
+  recordReview(word, picked, reason) {
     const existing = this.state.review.get(word.english);
     if (existing) {
       existing.count += 1;
-      existing.reason = reason;
+      existing.correct += reason === "correct" ? 1 : 0;
+      existing.wrong += reason === "wrong" ? 1 : 0;
+      existing.miss += reason === "miss" ? 1 : 0;
+      existing.reason = existing.wrong || existing.miss ? reason : "correct";
       existing.lastPicked = picked;
       return;
     }
     this.state.review.set(word.english, {
       english: word.english,
       japanese: word.japanese,
+      detail: word.detail,
       lastPicked: picked,
       reason,
-      count: 1
+      count: 1,
+      correct: reason === "correct" ? 1 : 0,
+      wrong: reason === "wrong" ? 1 : 0,
+      miss: reason === "miss" ? 1 : 0
     });
   }
 
@@ -901,34 +921,213 @@ export class VocabSprintGame {
 
     const title = document.createElement("div");
     title.className = "review-title";
-    title.textContent = "復習リスト";
+    title.textContent = "出題リスト";
     this.ui.reviewList.appendChild(title);
 
     for (const item of this.state.review.values()) {
       const row = document.createElement("div");
       row.className = "review-item";
+      if (item.wrong || item.miss) {
+        row.classList.add("needs-review");
+      }
+      if (item.detail) {
+        row.title = item.detail;
+      }
       const english = document.createElement("strong");
       english.className = "review-word";
       english.textContent = item.count > 1 ? `${item.english} x${item.count}` : item.english;
       const japanese = document.createElement("span");
       japanese.className = "review-meaning";
       japanese.textContent = item.japanese;
+      const status = document.createElement("span");
+      status.className = "review-status";
+      if (item.wrong || item.miss) {
+        const parts = [];
+        if (item.wrong) {
+          parts.push(`Wrong ${item.wrong}`);
+        }
+        if (item.miss) {
+          parts.push(`Miss ${item.miss}`);
+        }
+        status.textContent = parts.join(" / ");
+      } else {
+        status.textContent = "OK";
+      }
       const links = document.createElement("span");
       links.className = "review-links";
       const encoded = encodeURIComponent(item.english);
-      const eijiro = document.createElement("a");
-      eijiro.href = `https://eow.alc.co.jp/search?q=${encoded}`;
-      eijiro.target = "_blank";
-      eijiro.rel = "noopener noreferrer";
-      eijiro.textContent = "英辞郎";
-      const youglish = document.createElement("a");
-      youglish.href = `https://youglish.com/pronounce/${encoded}/english`;
-      youglish.target = "_blank";
-      youglish.rel = "noopener noreferrer";
-      youglish.textContent = "YouGlish";
+      const eijiro = this.createLookupButton({
+        label: "英辞郎",
+        service: "英辞郎",
+        word: item.english,
+        url: `https://eow.alc.co.jp/search?q=${encoded}`,
+        mode: "iframe"
+      });
+      const youglish = this.createLookupButton({
+        label: "YouGlish",
+        service: "YouGlish",
+        word: item.english,
+        url: `https://youglish.com/pronounce/${encoded}/english`,
+        mode: "youglish"
+      });
       links.append(eijiro, youglish);
-      row.append(english, japanese, links);
+      row.append(english, japanese, status, links);
       this.ui.reviewList.appendChild(row);
+    }
+  }
+
+  createLookupButton({ label, service, word, url, mode }) {
+    const button = document.createElement("button");
+    button.className = "review-link-button";
+    button.type = "button";
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      this.openLookupModal({ service, word, url, mode });
+    });
+    return button;
+  }
+
+  openLookupModal({ service, word, url, mode = "iframe" }) {
+    if (!this.ui.lookupModal || !this.ui.lookupFrame) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    this.state.lookupOpen = true;
+    this.ui.lookupService.textContent = service;
+    this.ui.lookupTitle.textContent = word;
+    this.ui.lookupOpenLink.href = url;
+    this.ui.lookupFrame.title = `${service}: ${word}`;
+    this.ui.lookupNote.textContent = "表示されない場合は、別タブで開いてください。";
+    this.clearLookupContent();
+    this.ui.lookupModal.classList.remove("hidden");
+    if (mode === "youglish") {
+      this.ui.youglishHost?.classList.remove("hidden");
+      this.openYouglishWidget(word);
+    } else {
+      this.ui.lookupFrame.classList.remove("hidden");
+      this.ui.lookupFrame.src = url;
+    }
+    this.ui.lookupClose.focus();
+  }
+
+  closeLookupModal() {
+    if (!this.ui.lookupModal || !this.state.lookupOpen) {
+      return;
+    }
+    this.state.lookupOpen = false;
+    this.ui.lookupModal.classList.add("hidden");
+    this.clearLookupContent();
+  }
+
+  clearLookupContent() {
+    this.pauseYouglishWidget();
+    this.ui.lookupFrame?.removeAttribute("src");
+    this.ui.lookupFrame?.classList.add("hidden");
+    if (this.ui.youglishHost) {
+      this.ui.youglishHost.classList.add("hidden");
+      this.ui.youglishHost.replaceChildren();
+    }
+    this.youglishWidget = null;
+    this.youglishWidgetReady = null;
+    this.youglishWidgetVersion += 1;
+  }
+
+  createYouglishSlot() {
+    if (!this.ui.youglishHost) {
+      return "";
+    }
+    const slotId = `youglishWidgetSlot${this.youglishWidgetVersion}`;
+    const slot = document.createElement("div");
+    slot.id = slotId;
+    this.ui.youglishHost.replaceChildren(slot);
+    return slotId;
+  }
+
+  openYouglishWidget(word) {
+    if (!this.ui.youglishHost) {
+      window.open(`https://youglish.com/pronounce/${encodeURIComponent(word)}/english`, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const requestVersion = this.youglishWidgetVersion;
+    this.ensureYouglishWidget()
+      .then((widget) => {
+        if (
+          !this.state.lookupOpen
+          || requestVersion !== this.youglishWidgetVersion
+          || !this.ui.youglishHost
+          || this.ui.youglishHost.classList.contains("hidden")
+        ) {
+          return;
+        }
+        widget.fetch(word, "english");
+      })
+      .catch(() => {
+        this.youglishWidgetReady = null;
+        this.ui.lookupNote.textContent = "YouGlishを読み込めませんでした。別タブで開いてください。";
+      });
+  }
+
+  ensureYouglishWidget() {
+    if (this.youglishWidget) {
+      return Promise.resolve(this.youglishWidget);
+    }
+    if (this.youglishWidgetReady) {
+      return this.youglishWidgetReady;
+    }
+
+    this.youglishWidgetReady = new Promise((resolve, reject) => {
+      const createWidget = () => {
+        if (!window.YG?.Widget) {
+          reject(new Error("YouGlish API is unavailable"));
+          return;
+        }
+        const slotId = this.createYouglishSlot();
+        if (!slotId) {
+          reject(new Error("YouGlish host is unavailable"));
+          return;
+        }
+        this.youglishWidget = new window.YG.Widget(slotId, {
+          autoStart: 0,
+          components: 92,
+          restrictionMode: 1,
+          videoQuality: "small"
+        });
+        resolve(this.youglishWidget);
+      };
+
+      if (window.YG?.Widget) {
+        createWidget();
+        return;
+      }
+
+      const previousReady = window.onYouglishAPIReady;
+      window.onYouglishAPIReady = () => {
+        if (typeof previousReady === "function") {
+          previousReady();
+        }
+        createWidget();
+      };
+
+      const existingScript = document.querySelector('script[src="https://youglish.com/public/emb/widget.js"]');
+      if (existingScript) {
+        existingScript.addEventListener("error", () => reject(new Error("YouGlish API load failed")), { once: true });
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = "https://youglish.com/public/emb/widget.js";
+      script.async = true;
+      script.onerror = () => reject(new Error("YouGlish API load failed"));
+      document.head.appendChild(script);
+    });
+    return this.youglishWidgetReady;
+  }
+
+  pauseYouglishWidget() {
+    try {
+      this.youglishWidget?.pause();
+    } catch {
+      // YouGlish may still be loading.
     }
   }
 
@@ -952,7 +1151,76 @@ export class VocabSprintGame {
     return "";
   }
 
+  clearAnswerFocus() {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.closest(".answer-button")) {
+      active.blur();
+    }
+  }
+
+  answerFontRange() {
+    const lanes = this.activeLaneCount();
+    const narrow = window.innerWidth <= 620;
+    const shallow = window.innerHeight <= 700;
+    const veryShallow = window.innerHeight <= 560;
+    let max = lanes === 1 ? 24 : lanes === 2 ? 20 : 16.5;
+    let min = lanes === 1 ? 15 : lanes === 2 ? 13 : 11.5;
+
+    if (narrow) {
+      max = lanes === 1 ? 24 : lanes === 2 ? 20 : 16;
+      min = lanes === 1 ? 14 : lanes === 2 ? 12.5 : 10.5;
+    }
+    if (narrow && shallow) {
+      max = lanes === 1 ? 22 : lanes === 2 ? 18 : 15;
+      min = lanes === 1 ? 13 : lanes === 2 ? 11.5 : 10;
+    }
+    if (narrow && veryShallow) {
+      max = lanes === 1 ? 20 : lanes === 2 ? 16.5 : 14;
+      min = lanes === 1 ? 12.5 : lanes === 2 ? 10.8 : 9.8;
+    }
+    return { max, min };
+  }
+
+  fitAnswerTextElements() {
+    if (!this.ui.answers) {
+      return;
+    }
+    if (!this.answerMeasureCanvas) {
+      this.answerMeasureCanvas = document.createElement("canvas");
+      this.answerMeasureContext = this.answerMeasureCanvas.getContext("2d");
+    }
+    const context = this.answerMeasureContext;
+    if (!context) {
+      return;
+    }
+    const { max, min } = this.answerFontRange();
+    for (const element of this.ui.answers.querySelectorAll(".answer-button .word")) {
+      const text = element.textContent || "";
+      element.style.fontSize = `${max}px`;
+      if (!text) {
+        continue;
+      }
+      const available = Math.max(0, element.clientWidth - 2);
+      if (!available) {
+        continue;
+      }
+      const style = getComputedStyle(element);
+      const family = style.fontFamily || "system-ui, sans-serif";
+      const weight = style.fontWeight || "850";
+      let size = max;
+      while (size > min) {
+        context.font = `${weight} ${size}px ${family}`;
+        if (context.measureText(text).width <= available) {
+          break;
+        }
+        size = Math.max(min, size - 0.5);
+      }
+      element.style.fontSize = `${size}px`;
+    }
+  }
+
   renderAnswerButtons() {
+    this.clearAnswerFocus();
     this.ui.answers.innerHTML = "";
     this.ui.answers.style.setProperty("--lane-count", String(this.activeLaneCount()));
     const laneKeys = this.laneKeys();
@@ -1001,11 +1269,15 @@ export class VocabSprintGame {
         }
         word.textContent = optionText;
         button.append(key, word);
-        button.addEventListener("click", () => this.answer(laneIndex, optionIndex));
+        button.addEventListener("click", () => {
+          button.blur();
+          this.answer(laneIndex, optionIndex);
+        });
         panel.appendChild(button);
       }
       this.ui.answers.appendChild(panel);
     }
+    this.fitAnswerTextElements();
   }
 
   startGame() {
@@ -1152,6 +1424,7 @@ export class VocabSprintGame {
       this.startLaneFade(lane, "correct", CARD_FADE_OUT_TIME);
       this.addCardParticles(laneIndex, lane, "correct");
       this.audio.playSfx("correct");
+      this.recordReview(lane.word, picked, "correct");
       this.state.effects.push({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: "#8fc35d" });
       this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: "#f0ce6c" });
       this.addFeed(`${lane.word.english} = ${lane.word.japanese} / ${this.formatTimeDelta(timeBonus)}`);
@@ -1169,7 +1442,7 @@ export class VocabSprintGame {
       lane.shake = 8;
       lane.flash = "wrong";
       lane.flashTime = 0.22;
-      this.addReview(lane.word, picked, "wrong");
+      this.recordReview(lane.word, picked, "wrong");
       this.showAnswerReveal(laneIndex, lane);
       this.startLaneFade(lane, "wrong", CARD_FADE_OUT_TIME + 0.08);
       this.addCardParticles(laneIndex, lane, "wrong");
@@ -1200,7 +1473,7 @@ export class VocabSprintGame {
     this.state.miss += 1;
     this.state.streak = 0;
     this.state.score = Math.max(0, this.state.score - 35);
-    this.addReview(lane.word, null, "miss");
+    this.recordReview(lane.word, null, "miss");
     this.showAnswerReveal(laneIndex, lane);
     this.startLaneFade(lane, "miss", ANSWER_REVEAL_TIME);
     this.addCardParticles(laneIndex, lane, "miss");
@@ -1405,6 +1678,25 @@ export class VocabSprintGame {
     return trimmed ? trimmed + marker : marker;
   }
 
+  layoutCanvasSingleLine(text, maxWidth, maxHeight, baseSize, minSize = 12) {
+    const clean = String(text).trim().replace(/\s+/g, " ");
+    const roundedBase = Math.round(baseSize);
+    for (let size = roundedBase; size >= minSize; size -= 1) {
+      this.setCanvasFont(size);
+      const lineHeight = Math.max(12, Math.round(size * 1.06));
+      if (this.measuredWidth(clean) <= maxWidth + 0.5 && lineHeight <= maxHeight) {
+        return { size, lineHeight, lines: [clean] };
+      }
+    }
+
+    this.setCanvasFont(minSize);
+    return {
+      size: minSize,
+      lineHeight: Math.max(12, Math.round(minSize * 1.06)),
+      lines: [this.truncateCanvasText(clean, maxWidth)]
+    };
+  }
+
   wrapContinuousText(text, maxWidth, maxLines) {
     const lines = [];
     let current = "";
@@ -1562,7 +1854,11 @@ export class VocabSprintGame {
       const minBaseFont = lanes === 1 ? 30 : lanes === 2 ? 27 : 24;
       const baseFont = Math.max(minBaseFont, Math.min(maxFont, cardWidth * 0.34));
       const minFont = lanes === 1 ? 18 : lanes === 2 ? 16 : 14;
-      const textLayout = this.layoutCanvasText(lane.word.english, textMaxWidth, cardHeight - 18, baseFont, maxLines, minFont);
+      const cleanEnglish = String(lane.word.english).trim().replace(/\s+/g, " ");
+      const visibleCharacters = Array.from(cleanEnglish.replace(/\s+/g, "")).length;
+      const textLayout = visibleCharacters <= 15
+        ? this.layoutCanvasSingleLine(cleanEnglish, textMaxWidth, cardHeight - 18, baseFont, Math.max(12, minFont - 2))
+        : this.layoutCanvasText(cleanEnglish, textMaxWidth, cardHeight - 18, baseFont, maxLines, minFont);
       this.ctx.fillStyle = cardText;
       this.setCanvasFont(textLayout.size);
       this.ctx.textAlign = "center";
@@ -1676,6 +1972,7 @@ export class VocabSprintGame {
     this.showOverlay("Result", `Score ${this.state.score} / Best ${this.state.best}`, "Restart", {
       showBack: false,
       showTitleDetails: true,
+      obscureBoard: true,
       resultMode: true,
       fadeIn: Boolean(options.fadeIn)
     });
@@ -1733,7 +2030,10 @@ export class VocabSprintGame {
     this.ui.laneCount.value = String(this.activeLaneCount());
     this.ui.time.textContent = String(Math.ceil(Math.max(0, this.state.timeLeft))).padStart(2, "0");
     this.ui.elapsed.textContent = this.formatPlayTime(this.state.elapsed);
-    this.ui.timeBar.style.width = `${Math.max(0, Math.min(100, (this.state.timeLeft / RUN_TIME) * 100))}%`;
+    this.ui.timeBar.style.setProperty(
+      "--time-progress",
+      `${Math.max(0, Math.min(100, (this.state.timeLeft / RUN_TIME) * 100))}%`
+    );
     this.ui.score.textContent = String(this.state.score);
     this.ui.best.textContent = String(Math.max(this.state.best, this.state.score));
     this.ui.streak.textContent = String(this.state.streak);
@@ -1810,10 +2110,8 @@ export class VocabSprintGame {
     this.ui.soundButton.addEventListener("click", () => this.toggleSoundPanel());
     this.ui.themeButton?.addEventListener("click", () => this.toggleTheme());
     this.ui.pauseButton.addEventListener("click", () => this.pauseGame());
-    for (const input of [this.ui.correctTime, this.ui.streakTime, this.ui.wrongTime]) {
-      input.addEventListener("input", () => this.applySettingsFromInputs());
-      input.addEventListener("change", () => this.applySettingsFromInputs());
-    }
+    this.ui.lookupClose?.addEventListener("click", () => this.closeLookupModal());
+    this.ui.lookupBackdrop?.addEventListener("click", () => this.closeLookupModal());
     for (const input of [this.ui.bgmEnabled, this.ui.bgmVolume, this.ui.bgmTrack, this.ui.sfxEnabled, this.ui.sfxVolume]) {
       input.addEventListener("input", () => this.applySettingsFromInputs());
       input.addEventListener("change", () => this.applySettingsFromInputs());
@@ -1852,11 +2150,19 @@ export class VocabSprintGame {
     window.addEventListener("resize", () => {
       this.resizeCanvas();
       this.positionLevelMenu();
+      this.fitAnswerTextElements();
       this.drawBoard();
     });
     this.ui.overlayScroll.addEventListener("scroll", () => this.positionLevelMenu());
     window.addEventListener("keydown", (event) => {
       const key = event.key.toLowerCase();
+      if (this.state.lookupOpen) {
+        if (key === "escape") {
+          event.preventDefault();
+          this.closeLookupModal();
+        }
+        return;
+      }
       if (key === "escape" && (this.state.levelMenuOpen || this.state.soundPanelOpen)) {
         event.preventDefault();
         this.setLevelMenuOpen(false);

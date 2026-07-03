@@ -11,7 +11,10 @@
   <main class="app">
     <header class="topbar">
       <div class="brand">
-        <h1>Word Rush</h1>
+        <div class="brand-title">
+          <img class="brand-icon" src="assets/icons/favicon.svg" alt="" aria-hidden="true">
+          <h1>Word Rush</h1>
+        </div>
         <div class="phase" id="phaseLabel">Loading</div>
       </div>
       <div class="toolbar">
@@ -103,7 +106,7 @@
             </div>
             <div class="overlay-scroll">
               <div class="title-details" id="titleDetails">
-                <input id="levelSelect" type="hidden" value="elementary3">
+                <input id="levelSelect" type="hidden" value="a1-part1">
                 <div class="title-control-grid">
                   <div class="title-control">
                     <span>レベル</span>
@@ -142,20 +145,6 @@
                   <span>落ちてくる英単語の正しい日本語訳を選んでください。</span>
                   <span>表示されているキー、タップやクリックで選びます。</span>
                   <span>ブラウザのキャッシュを消去するとハイスコアやプレイ回数などが消えます。</span>
-                </div>
-                <div class="settings-grid" aria-label="速度と時間の設定">
-                  <label>
-                    <span>正解時 +秒</span>
-                    <input id="correctTimeInput" type="number" min="0" max="20" step="0.001">
-                  </label>
-                  <label>
-                    <span>連続正解係数</span>
-                    <input id="streakTimeInput" type="number" min="0" max="5" step="0.001">
-                  </label>
-                  <label>
-                    <span>失敗時 -秒</span>
-                    <input id="wrongTimeInput" type="number" min="0" max="20" step="0.001">
-                  </label>
                 </div>
               </div>
               <div class="review-list" id="reviewList"></div>
@@ -204,6 +193,27 @@
         <section class="feed" id="feed" aria-label="ログ"></section>
       </aside>
     </section>
+
+    <div class="lookup-modal hidden" id="lookupModal" role="dialog" aria-modal="true" aria-labelledby="lookupTitle">
+      <div class="lookup-backdrop" id="lookupBackdrop"></div>
+      <section class="lookup-window">
+        <header class="lookup-header">
+          <div>
+            <span class="lookup-service" id="lookupService">Lookup</span>
+            <h2 id="lookupTitle">Lookup</h2>
+          </div>
+          <div class="lookup-actions">
+            <a class="lookup-open" id="lookupOpenLink" href="#" target="_blank" rel="noopener noreferrer">別タブ</a>
+            <button class="lookup-close" id="lookupCloseButton" type="button" aria-label="閉じる">×</button>
+          </div>
+        </header>
+        <div class="lookup-frame-wrap">
+          <div class="youglish-widget hidden" id="youglishWidgetHost"></div>
+          <iframe id="lookupFrame" title="Lookup" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        </div>
+        <p class="lookup-note" id="lookupNote">表示されない場合は、別タブで開いてください。</p>
+      </section>
+    </div>
   </main>
 
   <script type="module" src="js/main.js"></script>
