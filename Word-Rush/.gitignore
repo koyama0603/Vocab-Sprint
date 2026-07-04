@@ -1,1 +1,4 @@
 server*.log
+dist/
+.wrangler/
+node_modules/

@@ -1,0 +1,98 @@
+{
+  "createdAt": "2026-07-04",
+  "sourceCsv": "C:\\Users\\koyam\\Documents\\Codex\\HTML-English-Word-App\\Word-Rush\\data\\a1-part1.csv",
+  "count": 20,
+  "edgeTts": {
+    "voice": "en-US-JennyNeural",
+    "dir": "C:\\Users\\koyam\\Documents\\Codex\\HTML-English-Word-App\\work\\tts-comparison-20260704\\edge-tts",
+    "format": "mp3"
+  },
+  "piper": {
+    "voice": "en_US-lessac-medium",
+    "dir": "C:\\Users\\koyam\\Documents\\Codex\\HTML-English-Word-App\\work\\tts-comparison-20260704\\piper",
+    "format": "mp3",
+    "intermediate": "wav converted with ffmpeg and removed after verification"
+  },
+  "words": [
+    {
+      "id": "a1-part1-0025",
+      "english": "hi"
+    },
+    {
+      "id": "a1-part1-0038",
+      "english": "make"
+    },
+    {
+      "id": "a1-part1-0043",
+      "english": "time"
+    },
+    {
+      "id": "a1-part1-0058",
+      "english": "work"
+    },
+    {
+      "id": "a1-part1-0065",
+      "english": "take"
+    },
+    {
+      "id": "a1-part1-0066",
+      "english": "give"
+    },
+    {
+      "id": "a1-part1-0070",
+      "english": "good"
+    },
+    {
+      "id": "a1-part1-0078",
+      "english": "man"
+    },
+    {
+      "id": "a1-part1-0084",
+      "english": "between"
+    },
+    {
+      "id": "a1-part1-0099",
+      "english": "number"
+    },
+    {
+      "id": "a1-part1-0100",
+      "english": "great"
+    },
+    {
+      "id": "a1-part1-0109",
+      "english": "people"
+    },
+    {
+      "id": "a1-part1-0110",
+      "english": "study"
+    },
+    {
+      "id": "a1-part1-0124",
+      "english": "water"
+    },
+    {
+      "id": "a1-part1-0125",
+      "english": "school"
+    },
+    {
+      "id": "a1-part1-0127",
+      "english": "child"
+    },
+    {
+      "id": "a1-part1-0143",
+      "english": "information"
+    },
+    {
+      "id": "a1-part1-0147",
+      "english": "question"
+    },
+    {
+      "id": "a1-part1-0184",
+      "english": "family"
+    },
+    {
+      "id": "a1-part1-0189",
+      "english": "important"
+    }
+  ]
+}

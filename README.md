@@ -1,19 +1,41 @@
 # HTML English Word App
 
-英単語落下ゲーム「Word Fall」の作業フォルダです。
+英単語落下ゲームの作業フォルダです。
 
 ## 現在の構成
 
+- `Word-Rush/`
+  - 通常サイト版のメイン開発フォルダです。
+  - アプリ名は `Word Rush`。
+  - 静的HTML + CSS + ES module JavaScriptで構成しています。
+  - 単語データは `data/` 以下のCSV、レベル設定は `js/levels.config.js` です。
+  - Cloudflare Workers Assets へのデプロイ設定は `wrangler.jsonc` です。
 - `appgallery-single-html/index.html`
   - MyShortcuts App Gallery 配布用の単体HTML版です。
-  - CSS、JavaScript、単語データ、BGM/効果音生成をすべて1ファイルに内包しています。
-  - 外部ファイルを読み込まないため、単体HTMLとして配布できます。
+  - 通常サイト版の作業では、ユーザーから明示依頼がない限り触りません。
 - `docs/handoff.md`
-  - 別チャットで通常サイト版の開発を続けるための引継ぎ書です。
+  - 別チャットで開発を続けるための最新引き継ぎ書です。
 - `docs/site-version-plan.md`
-  - 通常サイト版で外だし単語データ、複数ページ化、学習機能を進めるための初期計画です。
+  - 通常サイト版へ移行する初期計画の記録です。
 
-## 次の作業方針
+## 通常サイト版でよく使うコマンド
 
-App Gallery 配布版は `appgallery-single-html/index.html` を安定版として扱います。
-通常サイト版の開発では、この単体HTMLを参考にしつつ、単語データをCSVまたはJSONへ外だしする構成に移行します。
+`Word-Rush` フォルダで実行します。
+
+```powershell
+npm run serve
+node --check .\js\game.js
+node --check .\js\main.js
+npm run generate:audio
+npm run generate:cache
+```
+
+ローカル確認URL:
+
+`http://127.0.0.1:5173/`
+
+## デプロイ先
+
+`https://wordrush.myshortcuts.workers.dev/`
+
+詳しい現在状況、注意点、未コミット変更は `docs/handoff.md` を確認してください。

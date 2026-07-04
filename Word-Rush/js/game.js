@@ -55,6 +55,7 @@ export class VocabSprintGame {
       soundOnIcon: document.querySelector(".sound-on-icon"),
       soundOffIcon: document.querySelector(".sound-off-icon"),
       soundPanel: document.getElementById("soundPanel"),
+      soundPanelClose: document.getElementById("soundPanelClose"),
       bgmEnabled: document.getElementById("bgmEnabledInput"),
       bgmVolume: document.getElementById("bgmVolumeInput"),
       bgmVolumeValue: document.getElementById("bgmVolumeValue"),
@@ -92,6 +93,8 @@ export class VocabSprintGame {
       miss: document.getElementById("missValue"),
       accuracy: document.getElementById("accuracyValue"),
       wordCount: document.getElementById("wordCountValue"),
+      learnedCount: document.getElementById("learnedCountValue"),
+      unlearnedCount: document.getElementById("unlearnedCountValue"),
       feed: document.getElementById("feed"),
       lookupModal: document.getElementById("lookupModal"),
       lookupBackdrop: document.getElementById("lookupBackdrop"),
@@ -149,6 +152,7 @@ export class VocabSprintGame {
     this.youglishWidget = null;
     this.youglishWidgetReady = null;
     this.youglishWidgetVersion = 0;
+    this.reviewTooltip = this.createReviewTooltip();
     this.audio = new AudioEngine(() => this.state.settings, BGM_TRACKS);
   }
 
@@ -315,6 +319,14 @@ export class VocabSprintGame {
       incorrect: 0,
       seen: 0,
       lastSeen: 0
+    };
+  }
+
+  learningCounts() {
+    const learned = this.state.words.filter((word) => this.wordStatFor(word).seen > 0).length;
+    return {
+      learned,
+      unlearned: Math.max(0, this.state.words.length - learned)
     };
   }
 
@@ -937,7 +949,7 @@ export class VocabSprintGame {
       y: Math.max(92, Math.min(size.height - 124, lane.y + 32)),
       life: ANSWER_REVEAL_TIME,
       maxLife: ANSWER_REVEAL_TIME,
-      color: "#f0ce6c"
+      color: this.cssVar("--gold", "#f0ce6c")
     });
   }
 
@@ -958,17 +970,49 @@ export class VocabSprintGame {
     const size = this.canvasSize();
     const laneWidth = size.width / this.activeLaneCount();
     const card = this.cardMetrics(lane, laneWidth);
+    const green = this.cssVar("--green", "#8fc35d");
+    const gold = this.cssVar("--gold", "#f0ce6c");
+    const cyan = this.cssVar("--cyan", "#61bfd1");
+    const red = this.cssVar("--red", "#df6557");
+    const ink = this.cssVar("--ink", "#f1f4ee");
+    const muted = this.cssVar("--muted", "#a7b3ad");
     const count = kind === "correct" ? 24 : kind === "wrong" ? 20 : 18;
     const colors = kind === "correct"
-      ? ["#8fc35d", "#f0ce6c", "#61bfd1"]
+      ? [green, gold, cyan]
       : kind === "wrong"
-        ? ["#df6557", "#f0ce6c", "#f1f4ee"]
-        : ["#f0ce6c", "#a7b3ad", "#61bfd1"];
+        ? [red, gold, ink]
+        : [gold, muted, cyan];
     const shapes = kind === "correct"
       ? ["spark", "diamond", "ring", "dot"]
       : kind === "wrong"
         ? ["spark", "shard", "dot", "ring"]
         : ["shard", "ring", "dot"];
+
+    const centerX = card.x + card.width / 2;
+    const centerY = card.y + card.height / 2;
+    if (kind === "correct") {
+      this.state.effects.push({
+        type: "shockwave",
+        x: centerX,
+        y: centerY,
+        radius: Math.min(card.width, card.height) * 0.35,
+        growth: laneWidth * 0.42,
+        life: 0.38,
+        maxLife: 0.38,
+        color: green
+      });
+    } else if (kind === "wrong") {
+      this.state.effects.push({
+        type: "shockwave",
+        x: centerX,
+        y: centerY,
+        radius: Math.min(card.width, card.height) * 0.3,
+        growth: laneWidth * 0.22,
+        life: 0.3,
+        maxLife: 0.3,
+        color: red
+      });
+    }
 
     for (let i = 0; i < count; i += 1) {
       const angle = this.nextRandom() * Math.PI * 2;
@@ -977,13 +1021,18 @@ export class VocabSprintGame {
       const x = card.x + card.width * (0.5 + edgeBias * this.nextRandom());
       const y = card.y + card.height * (0.25 + this.nextRandom() * 0.55);
       const life = 0.44 + this.nextRandom() * 0.26;
+      const vy = kind === "correct"
+        ? Math.sin(angle) * speed - 24
+        : kind === "miss"
+          ? Math.abs(Math.sin(angle)) * speed * 0.55 + 14
+          : Math.sin(angle) * speed - 4;
       this.state.effects.push({
         type: "particle",
         x,
         y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - (kind === "correct" ? 24 : 4),
-        gravity: kind === "miss" ? 28 : 18,
+        vx: Math.cos(angle) * speed * (kind === "miss" ? 0.6 : 1),
+        vy,
+        gravity: kind === "miss" ? 46 : 18,
         radius: 2 + this.nextRandom() * 2.8,
         shape: shapes[this.randInt(0, shapes.length - 1)],
         angle: this.nextRandom() * Math.PI * 2,
@@ -996,6 +1045,7 @@ export class VocabSprintGame {
   }
 
   renderReviewList() {
+    this.hideReviewTooltip();
     this.ui.reviewList.innerHTML = "";
     if (!this.state.review.size) {
       const empty = document.createElement("div");
@@ -1017,7 +1067,13 @@ export class VocabSprintGame {
         row.classList.add("needs-review");
       }
       const detailText = this.reviewDetailText(item);
-      row.title = `${item.english} ： ${item.japanese}\n${detailText}`;
+      row.dataset.tooltipTitle = `${item.english} ： ${item.japanese}`;
+      row.dataset.tooltipDetail = detailText;
+      row.setAttribute("aria-label", `${row.dataset.tooltipTitle} ${detailText}`);
+      row.addEventListener("pointerenter", (event) => this.showReviewTooltip(row, event));
+      row.addEventListener("pointermove", (event) => this.positionReviewTooltip(event));
+      row.addEventListener("pointerleave", () => this.hideReviewTooltip());
+      row.addEventListener("pointercancel", () => this.hideReviewTooltip());
       const english = document.createElement("strong");
       english.className = "review-word";
       english.textContent = item.count > 1 ? `${item.english} x${item.count}` : item.english;
@@ -1026,20 +1082,27 @@ export class VocabSprintGame {
       japanese.textContent = item.japanese;
       const status = document.createElement("span");
       status.className = "review-status";
+      const statusLabel = document.createElement("span");
+      statusLabel.className = "review-status-label";
       if (item.wrong || item.miss) {
         status.classList.add("is-alert");
         const parts = [];
         if (item.wrong) {
-          parts.push(`Wrong x ${item.wrong}`);
+          parts.push("Wrong");
         }
         if (item.miss) {
-          parts.push(`Miss x ${item.miss}`);
+          parts.push("Miss");
         }
-        status.textContent = parts.join(" / ");
+        statusLabel.textContent = parts.join(" / ");
       } else {
         status.classList.add("is-ok");
-        status.textContent = "OK";
+        statusLabel.textContent = "OK";
       }
+      const cumulativeStats = this.wordStatFor(item);
+      const cumulative = document.createElement("span");
+      cumulative.className = "review-cumulative";
+      cumulative.textContent = `正：${cumulativeStats.correct}回　誤：${cumulativeStats.incorrect}回`;
+      status.append(statusLabel, cumulative);
       const detail = this.createReviewDetail(item.detail || "", item.sample || "", item.sampleJpn || "");
       const links = document.createElement("span");
       links.className = "review-links";
@@ -1065,7 +1128,7 @@ export class VocabSprintGame {
         url: `https://youglish.com/pronounce/${encoded}/english`,
         mode: "youglish"
       });
-      links.append(wiktionary, eijiro, youglish);
+      links.append(eijiro, youglish, wiktionary);
       row.append(english, japanese, status, detail, links);
       this.ui.reviewList.appendChild(row);
     }
@@ -1081,6 +1144,57 @@ export class VocabSprintGame {
       parts.push(`例: ${item.sample}${sampleJpn}`);
     }
     return parts.join(" / ") || "解説なし";
+  }
+
+  createReviewTooltip() {
+    const root = document.createElement("div");
+    root.className = "review-tooltip hidden";
+    root.setAttribute("aria-hidden", "true");
+    const title = document.createElement("div");
+    title.className = "review-tooltip-title";
+    const detail = document.createElement("div");
+    detail.className = "review-tooltip-detail";
+    root.append(title, detail);
+    document.body.appendChild(root);
+    return { root, title, detail };
+  }
+
+  showReviewTooltip(row, event) {
+    if (!this.reviewTooltip || !row.dataset.tooltipTitle) {
+      return;
+    }
+    this.reviewTooltip.title.textContent = row.dataset.tooltipTitle;
+    this.reviewTooltip.detail.textContent = row.dataset.tooltipDetail || "解説なし";
+    this.reviewTooltip.root.classList.remove("hidden");
+    this.reviewTooltip.root.setAttribute("aria-hidden", "false");
+    this.positionReviewTooltip(event);
+  }
+
+  positionReviewTooltip(event) {
+    if (!this.reviewTooltip || this.reviewTooltip.root.classList.contains("hidden")) {
+      return;
+    }
+    const offset = 14;
+    const margin = 10;
+    const rect = this.reviewTooltip.root.getBoundingClientRect();
+    let x = event.clientX + offset;
+    let y = event.clientY + offset;
+    if (x + rect.width + margin > window.innerWidth) {
+      x = event.clientX - rect.width - offset;
+    }
+    if (y + rect.height + margin > window.innerHeight) {
+      y = event.clientY - rect.height - offset;
+    }
+    this.reviewTooltip.root.style.left = `${Math.max(margin, x)}px`;
+    this.reviewTooltip.root.style.top = `${Math.max(margin, y)}px`;
+  }
+
+  hideReviewTooltip() {
+    if (!this.reviewTooltip) {
+      return;
+    }
+    this.reviewTooltip.root.classList.add("hidden");
+    this.reviewTooltip.root.setAttribute("aria-hidden", "true");
   }
 
   createReviewDetail(detailText, sampleText = "", sampleJpnText = "") {
@@ -1114,6 +1228,7 @@ export class VocabSprintGame {
   }
 
   openLookupModal({ service, word, url, mode = "iframe" }) {
+    this.hideReviewTooltip();
     if (!this.ui.lookupModal || !this.ui.lookupFrame) {
       window.open(url, "_blank", "noopener,noreferrer");
       return;
@@ -1551,8 +1666,8 @@ export class VocabSprintGame {
       this.addCardParticles(laneIndex, lane, "correct");
       this.audio.playSfx("correct");
       this.recordReview(lane.word, picked, "correct");
-      this.state.effects.push({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: "#8fc35d" });
-      this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: "#f0ce6c" });
+      this.state.effects.push({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: this.cssVar("--green", "#8fc35d") });
+      this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: this.cssVar("--gold", "#f0ce6c") });
       this.addFeed(`${lane.word.english} = ${lane.word.japanese} / ${this.formatTimeDelta(timeBonus)}`);
       setTimeout(() => {
         if (this.state.phase === "playing") {
@@ -1574,7 +1689,7 @@ export class VocabSprintGame {
       this.addCardParticles(laneIndex, lane, "wrong");
       this.audio.playSfx("wrong");
       const penalty = this.state.settings.wrongTimePenalty;
-      this.state.effects.push({ lane: laneIndex, text: `-20 ${this.formatTimeDelta(-penalty)}`, y: lane.y, life: 0.55, color: "#df6557" });
+      this.state.effects.push({ lane: laneIndex, text: `-20 ${this.formatTimeDelta(-penalty)}`, y: lane.y, life: 0.55, color: this.cssVar("--red", "#df6557") });
       this.addFeed(`${lane.word.english}: 正解は ${lane.word.japanese} / ${this.formatTimeDelta(-penalty)}`);
       this.adjustTime(-penalty);
       setTimeout(() => {
@@ -1605,7 +1720,7 @@ export class VocabSprintGame {
     this.addCardParticles(laneIndex, lane, "miss");
     this.audio.playSfx("miss");
     const penalty = this.state.settings.wrongTimePenalty;
-    this.state.effects.push({ lane: laneIndex, text: `MISS ${this.formatTimeDelta(-penalty)}`, y: this.guideLineY(this.canvasSize()) - 16, life: 0.65, color: "#e0b34e" });
+    this.state.effects.push({ lane: laneIndex, text: `MISS ${this.formatTimeDelta(-penalty)}`, y: this.guideLineY(this.canvasSize()) - 16, life: 0.65, color: this.cssVar("--gold", "#e0b34e") });
     this.addFeed(`${lane.word.english} = ${lane.word.japanese} / ${this.formatTimeDelta(-penalty)}`);
     this.adjustTime(-penalty);
     setTimeout(() => {
@@ -1654,7 +1769,7 @@ export class VocabSprintGame {
         effect.y += effect.vy * dt;
         effect.vy += (effect.gravity || 0) * dt;
         effect.angle += (effect.spin || 0) * dt;
-      } else {
+      } else if (effect.type !== "shockwave") {
         effect.y -= 26 * dt;
       }
     }
@@ -1662,63 +1777,72 @@ export class VocabSprintGame {
   }
 
   drawLaneFlow(x, laneWidth, height, laneIndex, flow, now) {
-    this.ctx.save();
-    this.ctx.globalCompositeOperation = "source-over";
-    this.ctx.fillStyle = flow.shade;
-    this.ctx.fillRect(x, 0, laneWidth, height);
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.beginPath();
+    ctx.rect(x, 0, laneWidth, height);
+    ctx.clip();
 
-    const phase = now * 0.00112 + laneIndex * 0.9;
-    const slowPhase = now * 0.00078 + laneIndex * 1.35;
-    const verticalDrift = Math.sin(phase * 1.18) * height * 0.24;
+    ctx.fillStyle = flow.shade;
+    ctx.fillRect(x, 0, laneWidth, height);
+
+    const t = now * 0.001;
     const transparent = "rgba(255, 255, 255, 0)";
-    const diagonal = this.ctx.createLinearGradient(
-      x + laneWidth * (0.08 + Math.sin(phase) * 0.3),
-      -height * 0.34 + verticalDrift,
-      x + laneWidth * (1.12 + Math.cos(slowPhase) * 0.32),
-      height * 1.28 + Math.cos(phase * 0.8) * height * 0.2
-    );
-    diagonal.addColorStop(0, transparent);
-    diagonal.addColorStop(0.22, flow.coolMid);
-    diagonal.addColorStop(0.48, flow.warmMid);
-    diagonal.addColorStop(0.72, flow.greenSoft);
-    diagonal.addColorStop(1, flow.coolSoft);
-    this.ctx.fillStyle = diagonal;
-    this.ctx.fillRect(x, 0, laneWidth, height);
+    const steps = 9;
+    const ribbons = [
+      { color: flow.coolMid, thickness: 0.36, speed: 24, freq: 1.6, sway: 0.55, seed: laneIndex * 173.3 },
+      { color: flow.warmMid, thickness: 0.28, speed: 17, freq: 2.2, sway: 0.42, seed: 91.7 + laneIndex * 211.9 },
+      { color: flow.greenSoft, thickness: 0.22, speed: 31, freq: 1.25, sway: 0.5, seed: 47.1 + laneIndex * 97.3 },
+      { color: flow.coolSoft, thickness: 0.3, speed: 12, freq: 2.8, sway: 0.35, seed: 139.4 + laneIndex * 53.7 }
+    ];
 
-    const cross = this.ctx.createLinearGradient(
-      x + laneWidth * (0.9 + Math.sin(slowPhase * 0.8) * 0.28),
-      height * (1.08 + Math.cos(phase) * 0.12),
-      x + laneWidth * (0.1 + Math.cos(slowPhase) * 0.24),
-      -height * 0.18
-    );
-    cross.addColorStop(0, transparent);
-    cross.addColorStop(0.34, flow.warmSoft);
-    cross.addColorStop(0.58, flow.coolStrong);
-    cross.addColorStop(1, flow.coolSoft);
-    this.ctx.fillStyle = cross;
-    this.ctx.fillRect(x, 0, laneWidth, height);
-
-    for (let blob = 0; blob < 3; blob += 1) {
-      const blobPhase = phase + slowPhase * 0.65 + blob * Math.PI * 0.72;
-      const cx = x + laneWidth * (0.5 + Math.sin(blobPhase * 1.17) * 0.52);
-      const cy = height * (0.5 + Math.cos(blobPhase * 0.93) * 0.5);
-      const radius = Math.max(laneWidth * (1.1 + blob * 0.2), height * (0.42 + blob * 0.08));
-      const glow = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-      glow.addColorStop(0, blob % 2 ? flow.warmMid : flow.coolStrong);
-      glow.addColorStop(0.42, blob % 2 ? flow.greenSoft : flow.coolMid);
-      glow.addColorStop(1, transparent);
-      this.ctx.fillStyle = glow;
-      this.ctx.fillRect(x, 0, laneWidth, height);
+    for (const ribbon of ribbons) {
+      const band = height * ribbon.thickness;
+      const travel = height + band * 2;
+      const waveAmp = band * ribbon.sway;
+      for (const shift of [0, travel / 2]) {
+        const baseY = ((t * ribbon.speed + ribbon.seed + shift) % travel) - band;
+        const wavePhase = t * 0.7 + ribbon.seed + shift * 0.013;
+        ctx.beginPath();
+        for (let s = 0; s <= steps; s += 1) {
+          const px = x + (laneWidth * s) / steps;
+          const py = baseY + Math.sin((s / steps) * Math.PI * ribbon.freq + wavePhase) * waveAmp;
+          if (s === 0) {
+            ctx.moveTo(px, py);
+          } else {
+            ctx.lineTo(px, py);
+          }
+        }
+        for (let s = steps; s >= 0; s -= 1) {
+          const px = x + (laneWidth * s) / steps;
+          const py = baseY + band + Math.sin((s / steps) * Math.PI * ribbon.freq + wavePhase + 1.7) * waveAmp;
+          ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = ribbon.color;
+        ctx.fill();
+      }
     }
 
-    const veil = this.ctx.createLinearGradient(x, 0, x, height);
+    const gx = x + laneWidth * (0.5 + Math.sin(t * 0.33 + laneIndex * 1.9) * 0.42);
+    const gy = height * (0.5 + Math.cos(t * 0.26 + laneIndex * 1.3) * 0.44);
+    const gr = Math.max(laneWidth * 0.9, height * 0.4);
+    const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, gr);
+    glow.addColorStop(0, flow.coolStrong);
+    glow.addColorStop(0.5, flow.warmSoft);
+    glow.addColorStop(1, transparent);
+    ctx.fillStyle = glow;
+    ctx.fillRect(x, 0, laneWidth, height);
+
+    const veil = ctx.createLinearGradient(x, 0, x, height);
     veil.addColorStop(0, flow.finish);
     veil.addColorStop(0.52, transparent);
     veil.addColorStop(1, flow.finish);
-    this.ctx.fillStyle = veil;
-    this.ctx.fillRect(x, 0, laneWidth, height);
+    ctx.fillStyle = veil;
+    ctx.fillRect(x, 0, laneWidth, height);
 
-    this.ctx.restore();
+    ctx.restore();
   }
 
   drawBoard() {
@@ -1939,39 +2063,80 @@ export class VocabSprintGame {
   }
 
   drawWords(laneWidth) {
-    const cardBg = this.cssVar("--card-bg", "rgba(6, 10, 11, 0.58)");
     const cardText = this.cssVar("--card-text", "#f1f4ee");
-    const cyan = this.cssVar("--cyan", "#61bfd1");
+    const cardBgTop = this.cssVar("--card-bg-top", "rgba(28, 40, 43, 0.94)");
+    const cardBgBottom = this.cssVar("--card-bg-bottom", "rgba(9, 14, 16, 0.9)");
+    const cardBorder = this.cssVar("--card-border", "rgba(97, 191, 209, 0.55)");
+    const cardHighlight = this.cssVar("--card-highlight", "rgba(241, 244, 238, 0.16)");
+    const cardShadow = this.cssVar("--card-shadow", "rgba(0, 0, 0, 0.42)");
     const green = this.cssVar("--green", "#8fc35d");
+    const red = this.cssVar("--red", "#df6557");
+    const gold = this.cssVar("--gold", "#f0ce6c");
     for (const lane of this.state.lanes) {
       if (!lane) {
         continue;
       }
       const lanes = this.activeLaneCount();
       const card = this.cardMetrics(lane, laneWidth);
-      const fadeInAlpha = Math.max(0, Math.min(1, lane.age / CARD_FADE_IN_TIME));
+      const fadeInT = Math.max(0, Math.min(1, lane.age / CARD_FADE_IN_TIME));
+      const fadeInAlpha = 1 - (1 - fadeInT) ** 3;
       const fadeOutAlpha = lane.fadeDuration ? Math.max(0, Math.min(1, lane.fadeOut / lane.fadeDuration)) : 1;
       const alpha = fadeInAlpha * fadeOutAlpha;
       if (alpha <= 0.01) {
         continue;
       }
-      const x = card.x;
-      const y = card.y + (lane.fadeKind ? (1 - fadeOutAlpha) * -4 : (1 - fadeInAlpha) * -6);
-      const cardWidth = card.width;
-      const cardHeight = card.height;
+      const fadeOutProgress = 1 - fadeOutAlpha;
+      let scale = 0.93 + 0.07 * fadeInAlpha;
+      let drift = (1 - fadeInAlpha) * -6;
+      if (lane.fadeKind === "correct") {
+        scale *= 1 + 0.09 * fadeOutProgress;
+        drift = fadeOutProgress * -10;
+      } else if (lane.fadeKind === "wrong") {
+        scale *= 1 - 0.05 * fadeOutProgress;
+        drift = fadeOutProgress * -4;
+      } else if (lane.fadeKind === "miss") {
+        scale *= 1 - 0.06 * fadeOutProgress;
+        drift = fadeOutProgress * 8;
+      }
+      const cardWidth = card.width * scale;
+      const cardHeight = card.height * scale;
+      const x = card.x + (card.width - cardWidth) / 2;
+      const y = card.y + drift + (card.height - cardHeight) / 2;
       const pulse = lane.flash === "correct" && lane.flashTime > 0 ? 1 : 0;
-      const glow = pulse ? "rgba(143, 195, 93, 0.52)" : "rgba(97, 191, 209, 0.22)";
+      const spawning = fadeInT < 1;
+      const borderColor = pulse || lane.fadeKind === "correct" ? green
+        : lane.fadeKind === "wrong" ? red
+          : lane.fadeKind === "miss" ? gold
+            : cardBorder;
+      const glow = pulse || lane.fadeKind === "correct" ? "rgba(143, 195, 93, 0.5)"
+        : lane.fadeKind === "wrong" ? "rgba(223, 101, 87, 0.44)"
+          : spawning ? "rgba(97, 191, 209, 0.42)"
+            : "rgba(97, 191, 209, 0.2)";
+      const radius = 10;
 
       this.ctx.save();
       this.ctx.globalAlpha = alpha;
-      this.ctx.shadowColor = glow;
-      this.ctx.shadowBlur = 18;
-      this.roundRect(x, y, cardWidth, cardHeight, 8);
-      this.ctx.fillStyle = cardBg;
+      this.ctx.shadowColor = cardShadow;
+      this.ctx.shadowBlur = 14;
+      this.ctx.shadowOffsetY = 5;
+      this.roundRect(x, y, cardWidth, cardHeight, radius);
+      const bg = this.ctx.createLinearGradient(x, y, x, y + cardHeight);
+      bg.addColorStop(0, cardBgTop);
+      bg.addColorStop(1, cardBgBottom);
+      this.ctx.fillStyle = bg;
       this.ctx.fill();
+      this.ctx.shadowOffsetY = 0;
+      this.ctx.shadowColor = glow;
+      this.ctx.shadowBlur = pulse || lane.fadeKind || spawning ? 20 : 14;
+      this.ctx.strokeStyle = borderColor;
+      this.ctx.lineWidth = pulse || lane.fadeKind ? 2.2 : 1.6;
+      this.ctx.stroke();
       this.ctx.shadowBlur = 0;
-      this.ctx.strokeStyle = pulse ? green : cyan;
-      this.ctx.lineWidth = 2;
+      this.ctx.strokeStyle = cardHighlight;
+      this.ctx.lineWidth = 1;
+      this.ctx.beginPath();
+      this.ctx.moveTo(x + radius, y + 1.5);
+      this.ctx.lineTo(x + cardWidth - radius, y + 1.5);
       this.ctx.stroke();
 
       const textMaxWidth = cardWidth - (laneWidth < 130 ? 12 : 24);
@@ -2039,6 +2204,17 @@ export class VocabSprintGame {
           this.ctx.arc(0, 0, radius, 0, Math.PI * 2);
           this.ctx.fill();
         }
+      } else if (effect.type === "shockwave") {
+        const progress = 1 - alpha;
+        const radius = (effect.radius || 18) + progress * (effect.growth || 60);
+        this.ctx.globalAlpha = alpha * 0.85;
+        this.ctx.strokeStyle = effect.color;
+        this.ctx.lineWidth = Math.max(1, 3.2 * alpha);
+        this.ctx.shadowColor = effect.color;
+        this.ctx.shadowBlur = 10;
+        this.ctx.beginPath();
+        this.ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
+        this.ctx.stroke();
       } else if (effect.type === "reveal") {
         const laneCenter = effect.lane * laneWidth + laneWidth / 2;
         const progress = 1 - alpha;
@@ -2051,7 +2227,7 @@ export class VocabSprintGame {
 
         this.ctx.shadowColor = "rgba(240, 206, 108, 0.58)";
         this.ctx.shadowBlur = 22;
-        this.roundRect(x, y, cardWidth, cardHeight, 8);
+        this.roundRect(x, y, cardWidth, cardHeight, 10);
         this.ctx.fillStyle = revealBg;
         this.ctx.fill();
         this.ctx.shadowBlur = 0;
@@ -2072,9 +2248,11 @@ export class VocabSprintGame {
       } else {
         const laneCenter = effect.lane * laneWidth + laneWidth / 2;
         this.ctx.fillStyle = effect.color;
-        this.ctx.font = "950 22px system-ui, sans-serif";
+        this.ctx.font = "italic 900 22px 'Exo 2', system-ui, sans-serif";
         this.ctx.textAlign = "center";
         this.ctx.textBaseline = "middle";
+        this.ctx.shadowColor = effect.color;
+        this.ctx.shadowBlur = 8;
         this.ctx.fillText(effect.text, laneCenter, effect.y);
       }
       this.ctx.restore();
@@ -2116,6 +2294,7 @@ export class VocabSprintGame {
     this.ui.overlay.classList.toggle("result-mode", Boolean(options.resultMode));
     this.ui.overlay.classList.toggle("title-mode", Boolean(options.titleMode));
     this.ui.overlay.classList.toggle("pause-mode", Boolean(options.pauseMode));
+    document.body.classList.toggle("is-result-overlay", Boolean(options.resultMode));
     this.ui.overlay.classList.remove("fade-in");
     if (options.fadeIn) {
       this.ui.overlay.offsetHeight;
@@ -2128,6 +2307,7 @@ export class VocabSprintGame {
     this.ui.overlay.classList.remove("show");
     this.ui.overlay.classList.remove("fade-in", "result-mode", "title-mode", "pause-mode");
     this.ui.gameShell.classList.remove("is-obscured");
+    document.body.classList.remove("is-result-overlay");
   }
 
   accuracy() {
@@ -2168,6 +2348,13 @@ export class VocabSprintGame {
     this.ui.miss.textContent = String(this.state.miss);
     this.ui.accuracy.textContent = `${this.accuracy()}%`;
     this.ui.wordCount.textContent = String(this.state.words.length);
+    const learningCounts = this.learningCounts();
+    if (this.ui.learnedCount) {
+      this.ui.learnedCount.textContent = String(learningCounts.learned);
+    }
+    if (this.ui.unlearnedCount) {
+      this.ui.unlearnedCount.textContent = String(learningCounts.unlearned);
+    }
 
     const canPause = this.state.phase === "playing" || this.state.phase === "paused";
     this.ui.pauseButton.disabled = !canPause;
@@ -2234,6 +2421,11 @@ export class VocabSprintGame {
     this.ui.backButton.addEventListener("click", () => this.returnToTitle());
     this.ui.levelButton.addEventListener("click", () => this.toggleLevelMenu());
     this.ui.soundButton.addEventListener("click", () => this.toggleSoundPanel());
+    this.ui.soundPanelClose?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.setSoundPanelOpen(false);
+      this.ui.soundButton.focus();
+    });
     this.ui.themeButton?.addEventListener("click", () => this.toggleTheme());
     this.ui.pauseButton.addEventListener("click", () => this.pauseGame());
     this.ui.lookupClose?.addEventListener("click", () => this.closeLookupModal());
@@ -2277,9 +2469,13 @@ export class VocabSprintGame {
       this.resizeCanvas();
       this.positionLevelMenu();
       this.fitAnswerTextElements();
+      this.hideReviewTooltip();
       this.drawBoard();
     });
-    this.ui.overlayScroll.addEventListener("scroll", () => this.positionLevelMenu());
+    this.ui.overlayScroll.addEventListener("scroll", () => {
+      this.positionLevelMenu();
+      this.hideReviewTooltip();
+    });
     window.addEventListener("keydown", (event) => {
       const key = event.key.toLowerCase();
       if (this.state.lookupOpen) {

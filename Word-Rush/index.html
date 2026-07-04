@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Word Rush</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" sizes="any">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,700..900;1,700..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body data-theme="dark" data-lanes="3">
@@ -32,7 +35,10 @@
             </svg>
           </button>
           <div class="sound-panel hidden" id="soundPanel" role="dialog" aria-label="音設定">
-            <div class="panel-title">音設定</div>
+            <div class="sound-panel-header">
+              <div class="panel-title">音設定</div>
+              <button class="sound-panel-close" id="soundPanelClose" type="button" aria-label="音設定を閉じる">×</button>
+            </div>
             <label class="switch-row">
               <span>BGM</span>
               <input id="bgmEnabledInput" type="checkbox">
@@ -188,6 +194,8 @@
 
         <section class="level-meta" aria-label="単語データ">
           <div class="stat-row"><span>Words</span><strong id="wordCountValue">0</strong></div>
+          <div class="stat-row"><span>Learned</span><strong id="learnedCountValue">0</strong></div>
+          <div class="stat-row"><span>Unlearned</span><strong id="unlearnedCountValue">0</strong></div>
         </section>
 
         <section class="feed" id="feed" aria-label="ログ"></section>

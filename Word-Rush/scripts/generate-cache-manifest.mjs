@@ -14,7 +14,8 @@ const INCLUDE = [
   "js",
   "data",
   path.join("assets", "icons"),
-  path.join("assets", "audio")
+  path.join("assets", "audio"),
+  path.join("assets", "word-audio")
 ];
 const ALLOWED_EXTENSIONS = new Set([".html", ".css", ".js", ".json", ".csv", ".svg", ".mp3"]);
 const EXCLUDED_FILES = new Set(["cache-manifest.json"]);

@@ -1,0 +1,12 @@
+{
+  "updatedAt": "2026-07-04T06:08:55.093775+00:00",
+  "voice": "en-US-JennyNeural",
+  "outputRoot": "C:\\Users\\koyam\\Documents\\Codex\\HTML-English-Word-App\\Word-Rush\\assets\\word-audio\\en-us-edge-tts",
+  "total": 7000,
+  "createdThisRun": 7000,
+  "skippedThisRun": 0,
+  "doneThisRun": 7000,
+  "lastId": "c2-part1-0200",
+  "elapsedSeconds": 1311.7,
+  "estimatedRemainingSeconds": 0.0
+}
