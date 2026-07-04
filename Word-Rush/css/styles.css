@@ -1547,7 +1547,7 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 .lookup-modal {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 180;
   display: grid;
   place-items: center;
   padding: 16px;
@@ -1630,8 +1630,8 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 }
 
 .lookup-close {
-  min-width: 36px;
-  font-size: 20px;
+  min-width: 64px;
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -2128,6 +2128,15 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   .overlay.result-mode .review-link-button {
     padding: 3px 5px;
     font-size: 11px;
+  }
+
+  .lookup-modal {
+    align-items: start;
+    padding: 76px 10px 10px;
+  }
+
+  .lookup-window {
+    height: calc(100svh - 88px);
   }
 }
 

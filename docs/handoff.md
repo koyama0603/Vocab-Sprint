@@ -31,10 +31,9 @@ MyShortcuts App Gallery 配布用の単体HTML:
 
 - 本番URL: `https://wordrush.myshortcuts.workers.dev/`
 - Cloudflare Workers Assets 設定: `Word-Rush\wrangler.jsonc`
-- 直近の本番デプロイ Version ID: `ee7da341-a461-4bd7-a3f5-d9ae59afc0c6`
-- その後、ローカルで結果画面フォント拡大、音設定の閉じるボタン、開始画面のレベル/レーン表示拡大、`levels.config.js` の `accel` 調整を実施済み。
-- 上記の最新ローカル変更は、まだ本番へデプロイしていない。
-- 最新ローカル `cache-manifest.json` version は `c055b4d120c2cf35`。
+- 直近の本番デプロイ Version ID: `657eb1b6-7686-492a-a98f-1f281d0e1171`
+- 結果画面、音設定、開始画面、HUD、単語音声、単語データ更新などの最新ローカル変更は本番へデプロイ済み。
+- 最新ローカル `cache-manifest.json` version は `a67d75579798a51b`。
 
 ## 最近の主な実装
 
@@ -199,6 +198,11 @@ npx --yes wrangler@latest deploy
 - 直近のUI調整: プレイ中は音設定ボタンを無効化し、一時停止中は有効。開始画面では戻るボタンを無効化。開始画面の余白、Accuracy表記、レーン選択のダーク表示、結果画面Closeボタン周辺の余白、HUDラベルの発光を調整。
 - 直近のUI調整: 回答後、正解の緑色選択肢だけ文字色を黒のまま維持し、不正解選択肢は従来どおり灰色寄りに表示。
 - 直近のデータ更新: `Word-Rush\data_rc` の修正版CSV 35件を `Word-Rush\data` に反映。全CSVは各200行、列は `id,english,japanese,detail,sample,sample-jpn`。重複IDなし、CSV上の全IDに対応する単語MP3あり。
+- 直近のデプロイ準備: `Word-Rush\dist` を現在の静的ファイルから作り直し済み。`dist\data` はCSV 35件のみで、`README.md` と `manifest.json` は含めていない。
+- 直近のデプロイ: `Word-Rush\dist\data\a1-part1.csv` のみ差し替え後、Wranglerで差分デプロイ済み。本番CSVはローカル `dist` とSHA-256一致。
+- 直近のUI調整: 結果画面の辞書リンク表示をスマホ向けに `英辞`、`YouG`、`Wikt` へ短縮。lookup iframe モーダルをタイトルパネルより前面にし、スマホ時は上部ボタンが隠れない位置へ調整。lookup表示中は音設定、テーマ切替、戻るボタンを無効化。
+- 直近のUI調整: lookup iframe 右上の別タブボタンを `Open in new tab`、閉じるボタンを `Close` 表記に変更。
+- 直近のデプロイ: lookup iframe UI調整を `dist` へ反映し、Wranglerで差分デプロイ済み。アップロード対象は `/cache-manifest.json`、`/js/game.js`、`/index.html`、`/css/styles.css` の4件。
 
 ## 次チャットで最初に確認すること
 

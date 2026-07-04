@@ -1209,21 +1209,21 @@ export class VocabSprintGame {
       links.className = "review-links";
       const encoded = encodeURIComponent(item.english);
       const wiktionary = this.createLookupButton({
-        label: "Wiktionary",
+        label: "Wikt",
         service: "Wiktionary",
         word: item.english,
         url: `https://ja.wiktionary.org/wiki/${encoded}`,
         mode: "iframe"
       });
       const eijiro = this.createLookupButton({
-        label: "英辞郎",
+        label: "英辞",
         service: "英辞郎",
         word: item.english,
         url: `https://eow.alc.co.jp/search?q=${encoded}`,
         mode: "iframe"
       });
       const youglish = this.createLookupButton({
-        label: "YouGlish",
+        label: "YouG",
         service: "YouGlish",
         word: item.english,
         url: `https://youglish.com/pronounce/${encoded}/english`,
@@ -1349,6 +1349,7 @@ export class VocabSprintGame {
       this.ui.lookupFrame.classList.remove("hidden");
       this.ui.lookupFrame.src = url;
     }
+    this.updateUi();
     this.ui.lookupClose.focus();
   }
 
@@ -1359,6 +1360,7 @@ export class VocabSprintGame {
     this.state.lookupOpen = false;
     this.ui.lookupModal.classList.add("hidden");
     this.clearLookupContent();
+    this.updateUi();
   }
 
   clearLookupContent() {
@@ -2473,7 +2475,8 @@ export class VocabSprintGame {
     }
 
     const isPlaying = this.state.phase === "playing";
-    if (isPlaying && this.state.soundPanelOpen) {
+    const isLookupOpen = Boolean(this.state.lookupOpen);
+    if ((isPlaying || isLookupOpen) && this.state.soundPanelOpen) {
       this.setSoundPanelOpen(false);
     }
     const canPause = this.state.phase === "playing" || this.state.phase === "paused";
@@ -2483,7 +2486,7 @@ export class VocabSprintGame {
     this.ui.pauseIcon.classList.toggle("hidden", this.state.phase === "paused");
     this.ui.playIcon.classList.toggle("hidden", this.state.phase !== "paused");
     const audioOn = this.state.settings.bgmEnabled || this.state.settings.sfxEnabled;
-    this.ui.soundButton.disabled = isPlaying;
+    this.ui.soundButton.disabled = isPlaying || isLookupOpen;
     this.ui.soundButton.title = isPlaying ? "一時停止中に音設定" : "音設定";
     this.ui.soundButton.setAttribute("aria-label", this.ui.soundButton.title);
     this.ui.soundOnIcon.classList.toggle("hidden", !audioOn);
@@ -2491,10 +2494,13 @@ export class VocabSprintGame {
     this.updateBgmPreviewUi();
     this.ui.themeLightIcon?.classList.toggle("hidden", this.state.theme === "light");
     this.ui.themeDarkIcon?.classList.toggle("hidden", this.state.theme !== "light");
+    if (this.ui.themeButton) {
+      this.ui.themeButton.disabled = isLookupOpen;
+    }
     this.ui.level.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy;
     this.ui.levelButton.disabled = this.ui.level.disabled;
     this.ui.laneCount.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy;
-    this.ui.backButton.disabled = isBusy || this.state.phase === "ready";
+    this.ui.backButton.disabled = isBusy || this.state.phase === "ready" || isLookupOpen;
     this.ui.startButton.disabled = isBusy || isError || !this.state.words.length;
     this.updateTitleDetails();
   }
