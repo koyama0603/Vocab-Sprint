@@ -3,6 +3,9 @@ const BGM_OUTPUT_SCALE = 0.216;
 // 効果音ベースを上げる: 旧スライダー80%相当が新スライダー50%で同等になる（1.16 * 0.80 / 0.50）。
 const SFX_OUTPUT_SCALE = 1.856;
 const SFX_MAX_GAIN = 1.856;
+const WORD_AUDIO_ROOT = "assets/word-audio/en-us-edge-tts";
+const WORD_AUDIO_POOL_LIMIT = 24;
+const WORD_AUDIO_PREFETCH_LIMIT = 8;
 
 export class AudioEngine {
   constructor(getSettings, bgmTracks = []) {
@@ -20,6 +23,11 @@ export class AudioEngine {
     this.bgmFadeFrame = 0;
     this.bgmFadeToken = 0;
     this.bgmFading = false;
+    this.wordAudioRevision = "";
+    this.wordAudioRevisionReady = null;
+    this.wordAudioPool = new Map();
+    this.wordAudioCurrent = null;
+    this.wordAudioTimers = new Set();
     this.ctx = null;
     this.master = null;
     this.supported = Boolean(globalThis.AudioContext || globalThis.webkitAudioContext);
@@ -53,8 +61,168 @@ export class AudioEngine {
     return Math.max(0, Math.min(SFX_MAX_GAIN, this.clampVolume(this.settings().sfxVolume, 0.7) * SFX_OUTPUT_SCALE));
   }
 
+  wordAudioVolume() {
+    return Math.max(0, Math.min(1, this.clampVolume(this.settings().sfxVolume, 0.7) * 1.08));
+  }
+
   setTracks(tracks) {
     this.bgmTracks = Array.isArray(tracks) ? tracks : [];
+  }
+
+  encodePathSegment(value) {
+    return encodeURIComponent(String(value || "").trim());
+  }
+
+  wordAudioUrl(levelId, wordId) {
+    const level = this.encodePathSegment(levelId);
+    const id = this.encodePathSegment(wordId);
+    if (!level || !id) {
+      return "";
+    }
+    const version = this.wordAudioRevision ? `?v=${encodeURIComponent(this.wordAudioRevision)}` : "";
+    return `${WORD_AUDIO_ROOT}/${level}/${id}.mp3${version}`;
+  }
+
+  ensureWordAudioRevision() {
+    if (this.wordAudioRevisionReady) {
+      return this.wordAudioRevisionReady;
+    }
+    this.wordAudioRevisionReady = fetch("cache-manifest.json", { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("cache-manifest load failed");
+        }
+        return response.json();
+      })
+      .then((manifest) => {
+        const group = Array.isArray(manifest.assetGroups)
+          ? manifest.assetGroups.find((entry) => entry?.url === "assets/word-audio")
+          : null;
+        this.wordAudioRevision = String(group?.revision || manifest.version || "").trim();
+        return this.wordAudioRevision;
+      })
+      .catch(() => {
+        this.wordAudioRevision = "";
+        return "";
+      });
+    return this.wordAudioRevisionReady;
+  }
+
+  ensureWordAudio(url, preload = "metadata") {
+    if (!url || !globalThis.Audio) {
+      return null;
+    }
+    let entry = this.wordAudioPool.get(url);
+    if (!entry) {
+      const audio = new Audio();
+      audio.preload = preload;
+      audio.src = url;
+      entry = {
+        audio,
+        lastUsed: performance.now()
+      };
+      this.wordAudioPool.set(url, entry);
+      if (preload !== "none") {
+        audio.load();
+      }
+      this.evictWordAudioPool();
+    } else {
+      entry.lastUsed = performance.now();
+      if (preload === "auto" && entry.audio.preload !== "auto") {
+        entry.audio.preload = "auto";
+        entry.audio.load();
+      }
+    }
+    return entry.audio;
+  }
+
+  evictWordAudioPool() {
+    if (this.wordAudioPool.size <= WORD_AUDIO_POOL_LIMIT) {
+      return;
+    }
+    const entries = Array.from(this.wordAudioPool.entries())
+      .filter(([, entry]) => entry.audio !== this.wordAudioCurrent && entry.audio.paused)
+      .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+    while (this.wordAudioPool.size > WORD_AUDIO_POOL_LIMIT && entries.length) {
+      const [url, entry] = entries.shift();
+      entry.audio.removeAttribute("src");
+      entry.audio.load();
+      this.wordAudioPool.delete(url);
+    }
+  }
+
+  preloadWordAudio(urls, options = {}) {
+    if (!this.sfxEnabled() || !globalThis.Audio) {
+      return;
+    }
+    const preload = options.preload || "metadata";
+    const limit = Math.max(1, Math.min(WORD_AUDIO_PREFETCH_LIMIT, Number(options.limit) || WORD_AUDIO_PREFETCH_LIMIT));
+    const unique = [...new Set((Array.isArray(urls) ? urls : [urls]).filter(Boolean))].slice(0, limit);
+    for (const url of unique) {
+      this.ensureWordAudio(url, preload);
+    }
+  }
+
+  clearWordAudioTimers() {
+    for (const timer of this.wordAudioTimers) {
+      clearTimeout(timer);
+    }
+    this.wordAudioTimers.clear();
+  }
+
+  stopWordAudio() {
+    this.clearWordAudioTimers();
+    if (this.wordAudioCurrent) {
+      this.wordAudioCurrent.pause();
+      try {
+        this.wordAudioCurrent.currentTime = 0;
+      } catch {
+        // Some mobile browsers reject currentTime changes before metadata exists.
+      }
+    }
+    this.wordAudioCurrent = null;
+  }
+
+  playWordAudio(url, options = {}) {
+    if (!this.sfxEnabled() || !url || !globalThis.Audio) {
+      return;
+    }
+    const shouldPlay = typeof options.shouldPlay === "function" ? options.shouldPlay : null;
+    if (shouldPlay && !shouldPlay()) {
+      return;
+    }
+    const delayMs = Math.max(0, Number(options.delayMs) || 0);
+    if (delayMs) {
+      const timer = setTimeout(() => {
+        this.wordAudioTimers.delete(timer);
+        this.playWordAudio(url, { shouldPlay });
+      }, delayMs);
+      this.wordAudioTimers.add(timer);
+      return;
+    }
+
+    const audio = this.ensureWordAudio(url, "auto");
+    if (!audio) {
+      return;
+    }
+    if (this.wordAudioCurrent && this.wordAudioCurrent !== audio) {
+      this.wordAudioCurrent.pause();
+      try {
+        this.wordAudioCurrent.currentTime = 0;
+      } catch {
+        // Metadata may not be ready yet.
+      }
+    }
+    this.wordAudioCurrent = audio;
+    audio.volume = this.wordAudioVolume();
+    try {
+      audio.currentTime = 0;
+    } catch {
+      // Metadata may not be ready yet.
+    }
+    audio.play().catch(() => {
+      // User gesture and autoplay rules can still block media on some browsers.
+    });
   }
 
   clearBgmFade() {
@@ -357,6 +525,11 @@ export class AudioEngine {
   applySettings(getPhase) {
     if (this.master) {
       this.master.gain.value = this.sfxVolume();
+    }
+    if (!this.sfxEnabled()) {
+      this.stopWordAudio();
+    } else if (this.wordAudioCurrent) {
+      this.wordAudioCurrent.volume = this.wordAudioVolume();
     }
     if (this.previewAudio) {
       this.previewAudio.volume = this.bgmVolume();

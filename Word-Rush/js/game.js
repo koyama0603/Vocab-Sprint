@@ -26,6 +26,10 @@ const CARD_FADE_OUT_TIME = 0.24;
 const ANSWER_REVEAL_TIME = 1.12;
 const REVIEW_TOOLTIP_LONG_PRESS_MS = 520;
 const REVIEW_TOOLTIP_TOUCH_MOVE_CANCEL = 10;
+const WORD_AUDIO_START_DELAY_MS = 420;
+const WORD_AUDIO_START_STAGGER_MS = 720;
+const WORD_AUDIO_SPAWN_DELAY_MS = 90;
+const WORD_AUDIO_PREFETCH_COUNT = 6;
 const LANE_KEY_LAYOUTS = {
   1: [["a", "s", "d"]],
   2: [
@@ -783,6 +787,7 @@ export class VocabSprintGame {
 
     const token = ++this.loadToken;
     this.audio.stopBgm();
+    this.audio.stopWordAudio();
     this.state.phase = "loading";
     this.state.levelId = levelId;
     this.ui.level.value = levelId;
@@ -804,7 +809,10 @@ export class VocabSprintGame {
     this.drawBoard();
 
     try {
-      const words = await loadWords(level);
+      const [words] = await Promise.all([
+        loadWords(level),
+        this.audio.ensureWordAudioRevision()
+      ]);
       if (token !== this.loadToken) {
         return;
       }
@@ -1033,6 +1041,9 @@ export class VocabSprintGame {
       flashTime: 0,
       locked: false
     };
+    if (this.state.phase === "playing") {
+      this.preloadWordAudioFor([word], { preload: "auto", limit: 1 });
+    }
   }
 
   makeLanes() {
@@ -1106,6 +1117,58 @@ export class VocabSprintGame {
       maxLife: ANSWER_REVEAL_TIME,
       color: this.colors.gold
     });
+  }
+
+  wordAudioUrlFor(word, levelId = this.state.levelId) {
+    return this.audio.wordAudioUrl(levelId, word?.id);
+  }
+
+  preloadWordAudioFor(words, options = {}) {
+    const urls = (Array.isArray(words) ? words : [words])
+      .map((word) => this.wordAudioUrlFor(word))
+      .filter(Boolean);
+    this.audio.preloadWordAudio(urls, options);
+  }
+
+  prefetchUpcomingWordAudio() {
+    if (this.state.phase !== "playing" || !this.state.words.length) {
+      return;
+    }
+    const active = new Set(
+      this.state.lanes
+        .map((lane) => this.wordStatKey(lane?.word))
+        .filter(Boolean)
+    );
+    const candidates = this.state.words
+      .filter((word) => !active.has(this.wordStatKey(word)))
+      .sort((a, b) => this.wordPriorityWeight(b) - this.wordPriorityWeight(a))
+      .slice(0, WORD_AUDIO_PREFETCH_COUNT);
+    this.preloadWordAudioFor(candidates, { preload: "metadata", limit: WORD_AUDIO_PREFETCH_COUNT });
+  }
+
+  playLaneWordAudio(laneIndex, delayMs = 0) {
+    const lane = this.state.lanes[laneIndex];
+    const wordKey = this.wordStatKey(lane?.word);
+    const url = this.wordAudioUrlFor(lane?.word);
+    if (!url) {
+      return;
+    }
+    this.audio.playWordAudio(url, {
+      delayMs,
+      shouldPlay: () =>
+        this.state.phase === "playing"
+        && this.state.lanes[laneIndex] === lane
+        && this.wordStatKey(this.state.lanes[laneIndex]?.word) === wordKey
+    });
+  }
+
+  playVisibleWordAudioSequence(initialDelayMs = 0) {
+    for (let i = 0; i < this.state.lanes.length; i += 1) {
+      if (this.state.lanes[i]?.word) {
+        this.playLaneWordAudio(i, initialDelayMs + i * WORD_AUDIO_START_STAGGER_MS);
+      }
+    }
+    this.prefetchUpcomingWordAudio();
   }
 
   startLaneFade(lane, kind, duration = CARD_FADE_OUT_TIME) {
@@ -1247,9 +1310,13 @@ export class VocabSprintGame {
           event.preventDefault();
         }
       });
-      const english = document.createElement("strong");
+      const english = document.createElement("span");
       english.className = "review-word";
-      english.textContent = item.english;
+      const wordAudioButton = this.createWordAudioButton(item);
+      const englishText = document.createElement("strong");
+      englishText.className = "review-word-text";
+      englishText.textContent = item.english;
+      english.append(wordAudioButton, englishText);
       const japanese = document.createElement("span");
       japanese.className = "review-meaning";
       japanese.textContent = item.japanese;
@@ -1347,7 +1414,7 @@ export class VocabSprintGame {
   }
 
   handleReviewPointerDown(row, event) {
-    if (!this.isMobileReviewPointer(event) || event.target.closest(".review-links")) {
+    if (!this.isMobileReviewPointer(event) || event.target.closest(".review-links, .review-audio-button")) {
       return;
     }
     this.hideReviewTooltip();
@@ -1516,6 +1583,44 @@ export class VocabSprintGame {
       this.openLookupModal({ service, word, url, mode });
     });
     return button;
+  }
+
+  createWordAudioButton(item) {
+    const button = document.createElement("button");
+    button.className = "review-audio-button";
+    button.type = "button";
+    button.title = `${item.english} の音声を再生`;
+    button.setAttribute("aria-label", `${item.english} の音声を再生`);
+    button.disabled = !this.wordAudioUrlFor(item);
+
+    const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("d", "M8 5l11 7-11 7z");
+    icon.appendChild(path);
+    button.appendChild(icon);
+
+    button.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.playReviewWordAudio(item);
+    });
+    return button;
+  }
+
+  playReviewWordAudio(item) {
+    this.hideReviewTooltip();
+    const play = () => {
+      const url = this.wordAudioUrlFor(item);
+      if (url) {
+        this.audio.playWordAudio(url);
+      }
+    };
+    this.audio.ensureWordAudioRevision().then(play, play);
   }
 
   openLookupModal({ service, word, url, mode = "iframe" }) {
@@ -1946,6 +2051,7 @@ export class VocabSprintGame {
     this.addFeed(`${this.modeLabel()} / Start`);
     this.audio.playSfx("start");
     this.audio.startBgm(() => this.state.phase, { restart: true });
+    this.playVisibleWordAudioSequence(WORD_AUDIO_START_DELAY_MS);
     this.updateUi();
     this.renderAnswerButtons();
     this.startRenderLoop();
@@ -1957,6 +2063,7 @@ export class VocabSprintGame {
     }
     this.state.phase = "over";
     this.audio.fadeOutBgm(1800);
+    this.audio.stopWordAudio();
     this.saveBest();
     this.showResultOverlay({ fadeIn: true });
     this.addFeed(`Finish: ${this.state.score}`);
@@ -1967,6 +2074,7 @@ export class VocabSprintGame {
 
   returnToTitle() {
     this.audio.stopBgm();
+    this.audio.stopWordAudio();
     this.state.phase = this.state.words.length ? "ready" : "loading";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
     this.state.score = 0;
@@ -1996,6 +2104,7 @@ export class VocabSprintGame {
     if (this.state.phase === "playing") {
       this.state.phase = "paused";
       this.audio.stopBgm();
+      this.audio.stopWordAudio();
       this.showOverlay("Paused", "", "Resume", {
         showTitleDetails: true,
         obscureBoard: true,
@@ -2068,6 +2177,8 @@ export class VocabSprintGame {
       setTimeout(() => {
         if (this.state.phase === "playing") {
           this.spawnLane(laneIndex, true);
+          this.playLaneWordAudio(laneIndex, WORD_AUDIO_SPAWN_DELAY_MS);
+          this.prefetchUpcomingWordAudio();
           this.refreshAnswerButtons();
         }
       }, CARD_FADE_OUT_TIME * 1000);
@@ -2091,6 +2202,8 @@ export class VocabSprintGame {
       setTimeout(() => {
         if (this.state.phase === "playing") {
           this.spawnLane(laneIndex, true);
+          this.playLaneWordAudio(laneIndex, WORD_AUDIO_SPAWN_DELAY_MS);
+          this.prefetchUpcomingWordAudio();
           this.refreshAnswerButtons();
         }
       }, (CARD_FADE_OUT_TIME + 0.08) * 1000);
@@ -2122,6 +2235,8 @@ export class VocabSprintGame {
     setTimeout(() => {
       if (this.state.phase === "playing" && this.state.lanes[laneIndex] === lane) {
         this.spawnLane(laneIndex, true);
+        this.playLaneWordAudio(laneIndex, WORD_AUDIO_SPAWN_DELAY_MS);
+        this.prefetchUpcomingWordAudio();
         this.refreshAnswerButtons();
       }
     }, ANSWER_REVEAL_TIME * 1000);

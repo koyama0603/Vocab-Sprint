@@ -298,7 +298,8 @@ input {
 
 h1 {
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
+  max-width: 100%;
   margin: 0;
   padding-right: 5px;
   font-family: "Exo 2", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -311,7 +312,7 @@ h1 {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--ink);
-  background: linear-gradient(94deg, var(--title-grad-a) 6%, var(--title-grad-b) 48%, var(--title-grad-c) 94%);
+  background: linear-gradient(94deg, var(--title-grad-a) 10%, var(--title-grad-b) 48%, var(--title-grad-c) 90%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -367,11 +368,11 @@ select option {
   color: var(--ink);
 }
 
-:where(select, input[type="number"], .level-picker-button, .icon-button, .back-button, .bgm-preview-button, .start-button, .secondary-button, .sound-panel-close, .result-close-button, .lookup-open, .lookup-close):focus {
+:where(select, input[type="number"], .level-picker-button, .icon-button, .back-button, .bgm-preview-button, .start-button, .secondary-button, .sound-panel-close, .result-close-button, .review-audio-button, .lookup-open, .lookup-close):focus {
   outline: none;
 }
 
-:where(select, input[type="number"], .level-picker-button, .icon-button, .back-button, .bgm-preview-button, .start-button, .secondary-button, .sound-panel-close, .result-close-button, .lookup-open, .lookup-close):focus-visible {
+:where(select, input[type="number"], .level-picker-button, .icon-button, .back-button, .bgm-preview-button, .start-button, .secondary-button, .sound-panel-close, .result-close-button, .review-audio-button, .lookup-open, .lookup-close):focus-visible {
   outline: 2px solid var(--cyan);
   outline-offset: 2px;
 }
@@ -1499,6 +1500,12 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   line-height: 1.16;
 }
 
+.overlay.result-mode .review-word-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .overlay.result-mode .review-links {
   gap: 4px;
   padding-left: 4px;
@@ -1522,6 +1529,11 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 .overlay.result-mode .review-link-button {
   padding: 4px 7px;
   font-size: 12px;
+}
+
+.overlay.result-mode .review-audio-button {
+  width: 26px;
+  height: 26px;
 }
 
 @keyframes overlayFadeIn {
@@ -1676,8 +1688,45 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
 .review-word {
   grid-area: word;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   color: var(--ink);
   font-weight: 900;
+}
+
+.review-word-text {
+  min-width: 0;
+}
+
+.review-audio-button {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--gold) 14%, transparent);
+  color: var(--gold);
+  cursor: pointer;
+}
+
+.review-audio-button:hover:not(:disabled) {
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.review-audio-button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.review-audio-button svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
 }
 
 .review-meaning {
@@ -2431,29 +2480,29 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
   .review-tooltip {
     padding: 10px 12px;
-    max-height: min(280px, 36svh);
+    max-height: min(340px, 46svh);
     overflow: hidden;
-    font-size: 18px;
+    font-size: 22px;
     line-height: 1.32;
   }
 
   .review-tooltip-title {
     margin-bottom: 5px;
-    font-size: 23px;
+    font-size: 27px;
   }
 
   .review-tooltip-detail {
-    font-size: 18px;
+    font-size: 22px;
   }
 
   .review-tooltip-sample {
     margin-top: 7px;
-    font-size: 17px;
+    font-size: 21px;
   }
 
   .review-tooltip-sample-jpn {
     margin-top: 3px;
-    font-size: 13px;
+    font-size: 17px;
   }
 }
 

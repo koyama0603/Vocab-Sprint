@@ -28,6 +28,18 @@ function safePath(urlPath) {
   return resolved;
 }
 
+function toUrlPath(filePath) {
+  return path.relative(ROOT, filePath).replace(/\\/g, "/");
+}
+
+function cacheControlFor(filePath) {
+  const urlPath = toUrlPath(filePath);
+  if (urlPath.startsWith("assets/word-audio/")) {
+    return "public, max-age=31536000, immutable";
+  }
+  return "no-store";
+}
+
 const server = createServer(async (request, response) => {
   try {
     const filePath = safePath(request.url || "/");
@@ -42,7 +54,7 @@ const server = createServer(async (request, response) => {
     const body = await readFile(finalPath);
     response.writeHead(200, {
       "Content-Type": types.get(path.extname(finalPath)) || "application/octet-stream",
-      "Cache-Control": "no-store"
+      "Cache-Control": cacheControlFor(finalPath)
     });
     response.end(body);
   } catch {

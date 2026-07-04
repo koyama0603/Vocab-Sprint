@@ -20,7 +20,7 @@ const INCLUDE = [
 const ASSET_GROUPS = [
   {
     path: path.join("assets", "word-audio"),
-    revisionPolicy: "path-size",
+    revisionPolicy: "content-hash",
     versionPolicy: "ignored"
   }
 ];
@@ -72,14 +72,18 @@ async function fileHash(filePath) {
 }
 
 async function summarizeAssetGroup(group) {
-  const files = await collectFiles(group.path);
+  const files = (await collectFiles(group.path))
+    .sort((a, b) => toUrlPath(a).localeCompare(toUrlPath(b)));
   const entries = [];
   let bytes = 0;
 
   for (const filePath of files) {
     const fileStats = await stat(filePath);
     bytes += fileStats.size;
-    entries.push(`${toUrlPath(filePath)}:${fileStats.size}`);
+    const revision = group.revisionPolicy === "content-hash"
+      ? await fileHash(filePath)
+      : String(fileStats.size);
+    entries.push(`${toUrlPath(filePath)}:${fileStats.size}:${revision}`);
   }
 
   return {
