@@ -232,6 +232,8 @@ input {
   height: 100svh;
   min-height: 0;
   padding: 14px;
+  /* iOSのノッチ/Dynamic Island/ホームインジケータの下にトップバーが隠れないようにする。env()未対応ブラウザ向けに上の14pxをフォールバックとして残す。 */
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
@@ -1898,6 +1900,13 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   overflow-wrap: anywhere;
 }
 
+/* stat-row の値は折り返さない。幅が足りない分は JS 側でフォントサイズを縮小して収める。 */
+.stat-row span,
+.stat-row strong {
+  overflow: hidden;
+  white-space: nowrap;
+}
+
 .timer-value {
   margin: 5px 0;
   min-width: 3ch;
@@ -1965,7 +1974,9 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 }
 
 .stat-row {
-  align-items: baseline;
+  /* フォントサイズの縮小/復元でパネルの高さが揺れないよう、行の高さを固定する。 */
+  height: 30px;
+  align-items: center;
   color: var(--muted);
   font-size: 13px;
 }
@@ -2008,6 +2019,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 @media (max-width: 860px) {
   .app {
     padding: 8px;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
     gap: 8px;
   }
 
@@ -2212,6 +2224,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .stat-row {
+    height: 26px;
     gap: 5px;
     font-size: 11px;
   }
@@ -2274,6 +2287,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 @media (max-width: 380px) {
   .app {
     padding: 6px;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
   }
 
   .topbar {
@@ -2345,6 +2359,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   .app {
     gap: 6px;
     padding: 6px;
+    padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
   }
 
   .topbar {
@@ -2471,6 +2486,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .stat-row {
+    height: 26px;
     gap: 5px;
     font-size: 11px;
   }
@@ -2514,6 +2530,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   .app {
     gap: 6px;
     padding-block: 6px;
+    padding-block: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-bottom));
   }
 
   .topbar {

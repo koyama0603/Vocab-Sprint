@@ -165,6 +165,13 @@ export class VocabSprintGame {
     this.youglishWidget = null;
     this.youglishWidgetReady = null;
     this.youglishWidgetVersion = 0;
+    // 描画ループはプレイ中だけ回す（メニュー/一時停止/結果画面では止めて発熱を抑える）。
+    this.rafId = 0;
+    this.isLooping = false;
+    // テーマの色はフレームごとに getComputedStyle し直すと高コストなので一度だけ読んでキャッシュする。
+    this.colors = {};
+    // 学習統計は毎フレーム全単語を走査すると重いので、変化時だけ再計算してキャッシュする。
+    this.statsCache = null;
     this.reviewTooltip = this.createReviewTooltip();
     this.audio = new AudioEngine(() => this.state.settings, BGM_TRACKS);
   }
@@ -184,7 +191,7 @@ export class VocabSprintGame {
     this.drawBoard();
     this.observeCanvasSize();
     this.attachEvents();
-    requestAnimationFrame((now) => this.gameLoop(now));
+    // ループはプレイ中のみ回す。ここでは1フレームだけ描いておく。
     await this.loadLevel(this.state.levelId);
   }
 
@@ -335,15 +342,16 @@ export class VocabSprintGame {
     };
   }
 
-  learningCounts() {
-    const learned = this.state.words.filter((word) => this.wordStatFor(word).seen > 0).length;
-    return {
-      learned,
-      unlearned: Math.max(0, this.state.words.length - learned)
-    };
+  // 学習統計のキャッシュを無効化する（単語データや単語別記録が変わったとき）。
+  invalidateStatsCache() {
+    this.statsCache = null;
   }
 
-  levelSummaryStats() {
+  // 全単語を1回だけ走査して learningCounts と levelSummaryStats の両方を計算・キャッシュする。
+  computeStats() {
+    if (this.statsCache) {
+      return this.statsCache;
+    }
     let learned = 0;
     let correct = 0;
     let incorrect = 0;
@@ -357,16 +365,25 @@ export class VocabSprintGame {
     }
     const totalWords = this.state.words.length;
     const answered = correct + incorrect;
-    const learnedRate = totalWords ? Math.round((learned / totalWords) * 100) : 0;
-    const accuracyRate = answered ? Math.round((correct / answered) * 100) : 0;
-    return {
+    this.statsCache = {
       totalWords,
       learned,
+      unlearned: Math.max(0, totalWords - learned),
       correct,
       answered,
-      learnedRate,
-      accuracyRate
+      learnedRate: totalWords ? Math.round((learned / totalWords) * 100) : 0,
+      accuracyRate: answered ? Math.round((correct / answered) * 100) : 0
     };
+    return this.statsCache;
+  }
+
+  learningCounts() {
+    const stats = this.computeStats();
+    return { learned: stats.learned, unlearned: stats.unlearned };
+  }
+
+  levelSummaryStats() {
+    return this.computeStats();
   }
 
   updateWordStats(word, outcome) {
@@ -382,6 +399,7 @@ export class VocabSprintGame {
       lastSeen: outcome === "seen" ? Date.now() : current.lastSeen
     };
     this.state.wordStats[key] = next;
+    this.invalidateStatsCache();
     this.saveWordStats();
   }
 
@@ -447,6 +465,7 @@ export class VocabSprintGame {
     const nextTheme = theme === "light" ? "light" : "dark";
     this.state.theme = nextTheme;
     document.body.dataset.theme = nextTheme;
+    this.refreshThemeColors();
     const isLight = nextTheme === "light";
     if (this.ui.themeButton) {
       this.ui.themeButton.title = isLight ? "ダークモード" : "ライトモード";
@@ -714,6 +733,43 @@ export class VocabSprintGame {
     return getComputedStyle(document.body).getPropertyValue(name).trim() || fallback;
   }
 
+  // 描画で使うテーマ色を一度だけ読み取ってキャッシュする。テーマ切替時に呼び直す。
+  refreshThemeColors() {
+    const v = (name, fallback) => this.cssVar(name, fallback);
+    this.colors = {
+      canvasBg: v("--canvas-bg", "#0c1113"),
+      laneBgA: v("--lane-bg-a", "#101719"),
+      laneBgB: v("--lane-bg-b", "#151d20"),
+      laneLine: v("--lane-line", "rgba(97, 191, 209, 0.22)"),
+      missLine: v("--miss-line", "rgba(224, 179, 78, 0.16)"),
+      boardLabel: v("--board-label", "rgba(241, 244, 238, 0.16)"),
+      edgeLine: v("--edge-line", "rgba(97, 191, 209, 0.28)"),
+      flow: {
+        coolSoft: v("--lane-flow-cool-soft", "rgba(97, 191, 209, 0.05)"),
+        coolMid: v("--lane-flow-cool-mid", "rgba(97, 191, 209, 0.1)"),
+        coolStrong: v("--lane-flow-cool-strong", "rgba(97, 191, 209, 0.14)"),
+        warmSoft: v("--lane-flow-warm-soft", "rgba(240, 206, 108, 0.04)"),
+        warmMid: v("--lane-flow-warm-mid", "rgba(240, 206, 108, 0.075)"),
+        greenSoft: v("--lane-flow-green-soft", "rgba(143, 195, 93, 0.075)"),
+        shade: v("--lane-flow-shade", "rgba(0, 0, 0, 0.22)"),
+        finish: v("--lane-flow-finish", "rgba(0, 0, 0, 0.1)")
+      },
+      cardText: v("--card-text", "#f1f4ee"),
+      cardBgTop: v("--card-bg-top", "rgba(28, 40, 43, 0.94)"),
+      cardBgBottom: v("--card-bg-bottom", "rgba(9, 14, 16, 0.9)"),
+      cardBorder: v("--card-border", "rgba(97, 191, 209, 0.55)"),
+      cardHighlight: v("--card-highlight", "rgba(241, 244, 238, 0.16)"),
+      cardShadow: v("--card-shadow", "rgba(0, 0, 0, 0.42)"),
+      revealBg: v("--reveal-bg", "rgba(18, 25, 27, 0.95)"),
+      green: v("--green", "#8fc35d"),
+      red: v("--red", "#df6557"),
+      gold: v("--gold", "#f0ce6c"),
+      cyan: v("--cyan", "#61bfd1"),
+      ink: v("--ink", "#f1f4ee"),
+      muted: v("--muted", "#a7b3ad")
+    };
+  }
+
   async loadLevel(levelId, options = {}) {
     const level = LEVEL_MAP.get(levelId);
     if (!level) {
@@ -730,6 +786,7 @@ export class VocabSprintGame {
     this.state.lanes = [];
     this.state.effects = [];
     this.state.loadError = "";
+    this.invalidateStatsCache();
     this.savePreferences();
     this.renderLevelPicker();
     this.showOverlay(stayOnResult ? "Result" : APP_TITLE, "Loading", stayOnResult ? "Restart" : "Start", {
@@ -748,6 +805,7 @@ export class VocabSprintGame {
         return;
       }
       this.state.words = words;
+      this.invalidateStatsCache();
       this.state.phase = stayOnResult ? "over" : "ready";
       this.state.best = this.readBest();
       this.state.timeLeft = stayOnResult ? 0 : RUN_TIME;
@@ -1042,7 +1100,7 @@ export class VocabSprintGame {
       y: Math.max(92, Math.min(size.height - 124, lane.y + 32)),
       life: ANSWER_REVEAL_TIME,
       maxLife: ANSWER_REVEAL_TIME,
-      color: this.cssVar("--gold", "#f0ce6c")
+      color: this.colors.gold
     });
   }
 
@@ -1063,12 +1121,12 @@ export class VocabSprintGame {
     const size = this.canvasSize();
     const laneWidth = size.width / this.activeLaneCount();
     const card = this.cardMetrics(lane, laneWidth);
-    const green = this.cssVar("--green", "#8fc35d");
-    const gold = this.cssVar("--gold", "#f0ce6c");
-    const cyan = this.cssVar("--cyan", "#61bfd1");
-    const red = this.cssVar("--red", "#df6557");
-    const ink = this.cssVar("--ink", "#f1f4ee");
-    const muted = this.cssVar("--muted", "#a7b3ad");
+    const green = this.colors.green;
+    const gold = this.colors.gold;
+    const cyan = this.colors.cyan;
+    const red = this.colors.red;
+    const ink = this.colors.ink;
+    const muted = this.colors.muted;
     const count = kind === "correct" ? 24 : kind === "wrong" ? 20 : 18;
     const colors = kind === "correct"
       ? [green, gold, cyan]
@@ -1571,6 +1629,99 @@ export class VocabSprintGame {
     }
   }
 
+  // stat-row の値を書き換える。テキストが変わったときだけ再フィットする（毎フレームの無駄な計測を避ける）。
+  setStatText(element, text) {
+    if (!element || element.textContent === text) {
+      return;
+    }
+    element.textContent = text;
+    this.fitStatRow(element);
+  }
+
+  // ラベルと値が横並びで折り返さないよう、収まらない分だけフォントサイズを縮小する。
+  fitStatRow(valueElement) {
+    const row = valueElement?.closest(".stat-row");
+    const label = row?.querySelector("span");
+    if (!row || !label) {
+      return;
+    }
+    if (!this.statMeasureCanvas) {
+      this.statMeasureCanvas = document.createElement("canvas");
+      this.statMeasureContext = this.statMeasureCanvas.getContext("2d");
+    }
+    const context = this.statMeasureContext;
+    if (!context) {
+      return;
+    }
+    label.style.fontSize = "";
+    valueElement.style.fontSize = "";
+    const available = row.clientWidth;
+    if (!available) {
+      return;
+    }
+    const rowStyle = getComputedStyle(row);
+    const gap = parseFloat(rowStyle.columnGap || rowStyle.gap) || 0;
+    const labelStyle = getComputedStyle(label);
+    const valueStyle = getComputedStyle(valueElement);
+    const labelFamily = labelStyle.fontFamily || "system-ui, sans-serif";
+    const valueFamily = valueStyle.fontFamily || "system-ui, sans-serif";
+    const labelWeight = labelStyle.fontWeight || "700";
+    const valueWeight = valueStyle.fontWeight || "900";
+    const labelBase = parseFloat(labelStyle.fontSize) || 12;
+    const valueBase = parseFloat(valueStyle.fontSize) || 16;
+    const labelMin = Math.max(9, labelBase * 0.72);
+    const valueMin = Math.max(11, valueBase * 0.72);
+
+    const measure = (text, weight, size, family) => {
+      context.font = `${weight} ${size}px ${family}`;
+      return context.measureText(text || "").width;
+    };
+
+    let labelSize = labelBase;
+    let valueSize = valueBase;
+    let guard = 0;
+    while (guard < 40) {
+      guard += 1;
+      const labelWidth = measure(label.textContent, labelWeight, labelSize, labelFamily);
+      const valueWidth = measure(valueElement.textContent, valueWeight, valueSize, valueFamily);
+      if (labelWidth + gap + valueWidth <= available + 0.5) {
+        break;
+      }
+      if (valueSize > valueMin) {
+        valueSize = Math.max(valueMin, valueSize - 0.5);
+        continue;
+      }
+      if (labelSize > labelMin) {
+        labelSize = Math.max(labelMin, labelSize - 0.5);
+        continue;
+      }
+      break;
+    }
+    if (labelSize < labelBase - 0.01) {
+      label.style.fontSize = `${labelSize}px`;
+    }
+    if (valueSize < valueBase - 0.01) {
+      valueElement.style.fontSize = `${valueSize}px`;
+    }
+  }
+
+  fitAllStatRows() {
+    const elements = [
+      this.ui.score,
+      this.ui.best,
+      this.ui.streak,
+      this.ui.correct,
+      this.ui.wrong,
+      this.ui.miss,
+      this.ui.accuracy
+    ];
+    for (const element of elements) {
+      if (element) {
+        this.fitStatRow(element);
+      }
+    }
+  }
+
   renderAnswerButtons() {
     this.clearAnswerFocus();
     this.ui.answers.innerHTML = "";
@@ -1667,6 +1818,7 @@ export class VocabSprintGame {
     this.audio.startBgm(() => this.state.phase, { restart: true });
     this.updateUi();
     this.renderAnswerButtons();
+    this.startRenderLoop();
   }
 
   finishGame() {
@@ -1724,6 +1876,7 @@ export class VocabSprintGame {
       this.state.lastTime = performance.now();
       this.hideOverlay();
       this.audio.startBgm(() => this.state.phase);
+      this.startRenderLoop();
     }
     this.updateUi();
     this.renderAnswerButtons();
@@ -1779,8 +1932,8 @@ export class VocabSprintGame {
       this.addCardParticles(laneIndex, lane, "correct");
       this.audio.playSfx("correct");
       this.recordReview(lane.word, picked, "correct");
-      this.state.effects.push({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: this.cssVar("--green", "#8fc35d") });
-      this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: this.cssVar("--gold", "#f0ce6c") });
+      this.state.effects.push({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: this.colors.green });
+      this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: this.colors.gold });
       this.addFeed(`${lane.word.english} = ${lane.word.japanese} / ${this.formatTimeDelta(timeBonus)}`);
       setTimeout(() => {
         if (this.state.phase === "playing") {
@@ -1802,7 +1955,7 @@ export class VocabSprintGame {
       this.addCardParticles(laneIndex, lane, "wrong");
       this.audio.playSfx("wrong");
       const penalty = this.state.settings.wrongTimePenalty;
-      this.state.effects.push({ lane: laneIndex, text: `-20 ${this.formatTimeDelta(-penalty)}`, y: lane.y, life: 0.55, color: this.cssVar("--red", "#df6557") });
+      this.state.effects.push({ lane: laneIndex, text: `-20 ${this.formatTimeDelta(-penalty)}`, y: lane.y, life: 0.55, color: this.colors.red });
       this.addFeed(`${lane.word.english}: 正解は ${lane.word.japanese} / ${this.formatTimeDelta(-penalty)}`);
       this.adjustTime(-penalty);
       setTimeout(() => {
@@ -1833,7 +1986,7 @@ export class VocabSprintGame {
     this.addCardParticles(laneIndex, lane, "miss");
     this.audio.playSfx("miss");
     const penalty = this.state.settings.wrongTimePenalty;
-    this.state.effects.push({ lane: laneIndex, text: `MISS ${this.formatTimeDelta(-penalty)}`, y: this.guideLineY(this.canvasSize()) - 16, life: 0.65, color: this.cssVar("--gold", "#e0b34e") });
+    this.state.effects.push({ lane: laneIndex, text: `MISS ${this.formatTimeDelta(-penalty)}`, y: this.guideLineY(this.canvasSize()) - 16, life: 0.65, color: this.colors.gold });
     this.addFeed(`${lane.word.english} = ${lane.word.japanese} / ${this.formatTimeDelta(-penalty)}`);
     this.adjustTime(-penalty);
     setTimeout(() => {
@@ -1973,23 +2126,15 @@ export class VocabSprintGame {
 
   drawBoard() {
     const size = this.canvasSize();
-    const canvasBg = this.cssVar("--canvas-bg", "#0c1113");
-    const laneBgA = this.cssVar("--lane-bg-a", "#101719");
-    const laneBgB = this.cssVar("--lane-bg-b", "#151d20");
-    const laneLine = this.cssVar("--lane-line", "rgba(97, 191, 209, 0.22)");
-    const missLine = this.cssVar("--miss-line", "rgba(224, 179, 78, 0.16)");
-    const boardLabel = this.cssVar("--board-label", "rgba(241, 244, 238, 0.16)");
-    const edgeLine = this.cssVar("--edge-line", "rgba(97, 191, 209, 0.28)");
-    const flow = {
-      coolSoft: this.cssVar("--lane-flow-cool-soft", "rgba(97, 191, 209, 0.05)"),
-      coolMid: this.cssVar("--lane-flow-cool-mid", "rgba(97, 191, 209, 0.1)"),
-      coolStrong: this.cssVar("--lane-flow-cool-strong", "rgba(97, 191, 209, 0.14)"),
-      warmSoft: this.cssVar("--lane-flow-warm-soft", "rgba(240, 206, 108, 0.04)"),
-      warmMid: this.cssVar("--lane-flow-warm-mid", "rgba(240, 206, 108, 0.075)"),
-      greenSoft: this.cssVar("--lane-flow-green-soft", "rgba(143, 195, 93, 0.075)"),
-      shade: this.cssVar("--lane-flow-shade", "rgba(0, 0, 0, 0.22)"),
-      finish: this.cssVar("--lane-flow-finish", "rgba(0, 0, 0, 0.1)")
-    };
+    const colors = this.colors;
+    const canvasBg = colors.canvasBg;
+    const laneBgA = colors.laneBgA;
+    const laneBgB = colors.laneBgB;
+    const laneLine = colors.laneLine;
+    const missLine = colors.missLine;
+    const boardLabel = colors.boardLabel;
+    const edgeLine = colors.edgeLine;
+    const flow = colors.flow;
     this.ctx.clearRect(0, 0, size.width, size.height);
     this.ctx.fillStyle = canvasBg;
     this.ctx.fillRect(0, 0, size.width, size.height);
@@ -2189,15 +2334,16 @@ export class VocabSprintGame {
   }
 
   drawWords(laneWidth) {
-    const cardText = this.cssVar("--card-text", "#f1f4ee");
-    const cardBgTop = this.cssVar("--card-bg-top", "rgba(28, 40, 43, 0.94)");
-    const cardBgBottom = this.cssVar("--card-bg-bottom", "rgba(9, 14, 16, 0.9)");
-    const cardBorder = this.cssVar("--card-border", "rgba(97, 191, 209, 0.55)");
-    const cardHighlight = this.cssVar("--card-highlight", "rgba(241, 244, 238, 0.16)");
-    const cardShadow = this.cssVar("--card-shadow", "rgba(0, 0, 0, 0.42)");
-    const green = this.cssVar("--green", "#8fc35d");
-    const red = this.cssVar("--red", "#df6557");
-    const gold = this.cssVar("--gold", "#f0ce6c");
+    const colors = this.colors;
+    const cardText = colors.cardText;
+    const cardBgTop = colors.cardBgTop;
+    const cardBgBottom = colors.cardBgBottom;
+    const cardBorder = colors.cardBorder;
+    const cardHighlight = colors.cardHighlight;
+    const cardShadow = colors.cardShadow;
+    const green = colors.green;
+    const red = colors.red;
+    const gold = colors.gold;
     for (const lane of this.state.lanes) {
       if (!lane) {
         continue;
@@ -2289,8 +2435,8 @@ export class VocabSprintGame {
   }
 
   drawEffects(laneWidth) {
-    const revealBg = this.cssVar("--reveal-bg", "rgba(18, 25, 27, 0.95)");
-    const gold = this.cssVar("--gold", "#f0ce6c");
+    const revealBg = this.colors.revealBg;
+    const gold = this.colors.gold;
     for (const effect of this.state.effects) {
       const alpha = Math.max(0, Math.min(1, effect.life / (effect.maxLife || 0.7)));
       this.ctx.save();
@@ -2444,6 +2590,41 @@ export class VocabSprintGame {
     return total ? Math.round((this.state.correct / total) * 100) : 0;
   }
 
+  // 値が変わったときだけ textContent を書き込む（不要なレイアウト更新を避ける）。
+  setText(element, text) {
+    if (element && element.textContent !== text) {
+      element.textContent = text;
+    }
+  }
+
+  // 毎フレーム変化しうる HUD の数値だけを更新する軽量パス。gameLoop から呼ぶ。
+  updateHud() {
+    const countdown = this.state.phase === "playing" && this.state.timeLeft > 0 && this.state.timeLeft <= 3
+      ? String(Math.ceil(this.state.timeLeft))
+      : "";
+    if (this.ui.countdownGhost) {
+      this.setText(this.ui.countdownGhost, countdown);
+      this.ui.countdownGhost.classList.toggle("hidden", !countdown);
+    }
+    this.setText(this.ui.time, String(Math.ceil(Math.max(0, this.state.timeLeft))).padStart(2, "0"));
+    this.setText(this.ui.elapsed, this.formatPlayTime(this.state.elapsed));
+    this.ui.timeBar.style.setProperty(
+      "--time-progress",
+      `${Math.max(0, Math.min(100, (this.state.timeLeft / RUN_TIME) * 100))}%`
+    );
+    this.setStatText(this.ui.score, String(this.state.score));
+    this.setStatText(this.ui.best, String(Math.max(this.state.best, this.state.score)));
+    this.setStatText(this.ui.streak, String(this.state.streak));
+    this.setStatText(this.ui.correct, String(this.state.correct));
+    this.setStatText(this.ui.wrong, String(this.state.wrong));
+    this.setStatText(this.ui.miss, String(this.state.miss));
+    this.setStatText(this.ui.accuracy, `${this.accuracy()}%`);
+    this.setText(this.ui.wordCount, String(this.state.words.length));
+    const learningCounts = this.learningCounts();
+    this.setText(this.ui.learnedCount, String(learningCounts.learned));
+    this.setText(this.ui.unlearnedCount, String(learningCounts.unlearned));
+  }
+
   updateUi() {
     const isBusy = this.state.phase === "loading";
     const isError = this.state.phase === "error";
@@ -2451,14 +2632,7 @@ export class VocabSprintGame {
     this.ui.answers.style.setProperty("--lane-count", String(this.activeLaneCount()));
     this.ui.gameShell.classList.toggle("is-loading", isBusy);
     this.ui.loadingVeil?.classList.toggle("hidden", !isBusy);
-    const countdown = this.state.phase === "playing" && this.state.timeLeft > 0 && this.state.timeLeft <= 3
-      ? String(Math.ceil(this.state.timeLeft))
-      : "";
-    if (this.ui.countdownGhost) {
-      this.ui.countdownGhost.textContent = countdown;
-      this.ui.countdownGhost.classList.toggle("hidden", !countdown);
-    }
-    this.ui.phase.textContent = this.state.phase === "playing"
+    this.setText(this.ui.phase, this.state.phase === "playing"
       ? "Running"
       : this.state.phase === "paused"
         ? "Paused"
@@ -2468,29 +2642,9 @@ export class VocabSprintGame {
             ? "Loading"
             : isError
               ? "Error"
-              : "Ready";
+              : "Ready");
     this.ui.laneCount.value = String(this.activeLaneCount());
-    this.ui.time.textContent = String(Math.ceil(Math.max(0, this.state.timeLeft))).padStart(2, "0");
-    this.ui.elapsed.textContent = this.formatPlayTime(this.state.elapsed);
-    this.ui.timeBar.style.setProperty(
-      "--time-progress",
-      `${Math.max(0, Math.min(100, (this.state.timeLeft / RUN_TIME) * 100))}%`
-    );
-    this.ui.score.textContent = String(this.state.score);
-    this.ui.best.textContent = String(Math.max(this.state.best, this.state.score));
-    this.ui.streak.textContent = String(this.state.streak);
-    this.ui.correct.textContent = String(this.state.correct);
-    this.ui.wrong.textContent = String(this.state.wrong);
-    this.ui.miss.textContent = String(this.state.miss);
-    this.ui.accuracy.textContent = `${this.accuracy()}%`;
-    this.ui.wordCount.textContent = String(this.state.words.length);
-    const learningCounts = this.learningCounts();
-    if (this.ui.learnedCount) {
-      this.ui.learnedCount.textContent = String(learningCounts.learned);
-    }
-    if (this.ui.unlearnedCount) {
-      this.ui.unlearnedCount.textContent = String(learningCounts.unlearned);
-    }
+    this.updateHud();
 
     const isPlaying = this.state.phase === "playing";
     const isLookupOpen = Boolean(this.state.lookupOpen);
@@ -2523,13 +2677,37 @@ export class VocabSprintGame {
     this.updateTitleDetails();
   }
 
+  // プレイ中だけ描画ループを回す。二重起動しないようフラグで管理する。
+  startRenderLoop() {
+    if (this.isLooping) {
+      return;
+    }
+    this.isLooping = true;
+    this.state.lastTime = performance.now();
+    this.rafId = requestAnimationFrame((time) => this.gameLoop(time));
+  }
+
+  stopRenderLoop() {
+    if (this.rafId) {
+      cancelAnimationFrame(this.rafId);
+    }
+    this.rafId = 0;
+    this.isLooping = false;
+  }
+
   gameLoop(now) {
     const dt = Math.min(0.08, (now - this.state.lastTime) / 1000 || 0);
     this.state.lastTime = now;
     this.updateGame(dt);
     this.drawBoard();
-    this.updateUi();
-    requestAnimationFrame((time) => this.gameLoop(time));
+    // プレイ中はHUDの数値だけ軽量更新。全体の updateUi は状態遷移時に呼ぶ。
+    if (this.state.phase === "playing") {
+      this.updateHud();
+      this.rafId = requestAnimationFrame((time) => this.gameLoop(time));
+    } else {
+      // プレイが終わった（一時停止/終了/タイトルへ）ら最後のフレームを描いてループを止める。
+      this.stopRenderLoop();
+    }
   }
 
   laneKeys() {
@@ -2620,6 +2798,7 @@ export class VocabSprintGame {
       this.resizeCanvas();
       this.positionLevelMenu();
       this.fitAnswerTextElements();
+      this.fitAllStatRows();
       this.hideReviewTooltip();
       this.drawBoard();
     });
