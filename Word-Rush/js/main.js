@@ -47,6 +47,10 @@ game.init();
     window.matchMedia("(display-mode: standalone)").matches ||
     window.navigator.standalone === true;
 
+  const syncStandaloneClass = () => {
+    document.body.classList.toggle("is-standalone", isStandalone());
+  };
+
   let deferredPrompt = null;
 
   const hideButton = () => {
@@ -54,6 +58,9 @@ game.init();
     button.classList.add("hidden");
     deferredPrompt = null;
   };
+
+  syncStandaloneClass();
+  window.matchMedia("(display-mode: standalone)").addEventListener?.("change", syncStandaloneClass);
 
   // Chromium 系: インストール可能になったらプロンプトを保持してボタンを表示。
   window.addEventListener("beforeinstallprompt", (event) => {

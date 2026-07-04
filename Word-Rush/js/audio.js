@@ -17,6 +17,9 @@ export class AudioEngine {
     this.previewAudioPool = new Map();
     this.bgmGain = null;
     this.bgmFadeTimer = 0;
+    this.bgmFadeFrame = 0;
+    this.bgmFadeToken = 0;
+    this.bgmFading = false;
     this.ctx = null;
     this.master = null;
     this.supported = Boolean(globalThis.AudioContext || globalThis.webkitAudioContext);
@@ -56,8 +59,23 @@ export class AudioEngine {
 
   clearBgmFade() {
     if (this.bgmFadeTimer) {
-      clearInterval(this.bgmFadeTimer);
+      clearTimeout(this.bgmFadeTimer);
       this.bgmFadeTimer = 0;
+    }
+    if (this.bgmFadeFrame) {
+      cancelAnimationFrame(this.bgmFadeFrame);
+      this.bgmFadeFrame = 0;
+    }
+    this.bgmFadeToken += 1;
+    this.bgmFading = false;
+    if (this.bgmGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      try {
+        this.bgmGain.gain.cancelScheduledValues(now);
+        this.bgmGain.gain.setValueAtTime(this.bgmGain.gain.value, now);
+      } catch {
+        // Some older WebKit builds are picky about AudioParam scheduling.
+      }
     }
   }
 
@@ -81,7 +99,17 @@ export class AudioEngine {
   setBgmLevel(value) {
     const volume = this.clampVolume(value, this.bgmVolume());
     if (this.bgmGain) {
-      this.bgmGain.gain.value = volume;
+      if (this.ctx) {
+        const now = this.ctx.currentTime;
+        try {
+          this.bgmGain.gain.cancelScheduledValues(now);
+          this.bgmGain.gain.setValueAtTime(volume, now);
+        } catch {
+          this.bgmGain.gain.value = volume;
+        }
+      } else {
+        this.bgmGain.gain.value = volume;
+      }
       for (const audio of this.bgmAudioPool.values()) {
         audio.volume = 1;
       }
@@ -330,9 +358,6 @@ export class AudioEngine {
     if (this.master) {
       this.master.gain.value = this.sfxVolume();
     }
-    if (this.bgmAudio) {
-      this.setBgmLevel(this.bgmVolume());
-    }
     if (this.previewAudio) {
       this.previewAudio.volume = this.bgmVolume();
     }
@@ -342,6 +367,8 @@ export class AudioEngine {
     }
     if (getPhase?.() === "playing") {
       this.startBgm(getPhase);
+    } else if (this.bgmAudio && !this.bgmFading) {
+      this.setBgmLevel(this.bgmVolume());
     }
   }
 
@@ -358,17 +385,60 @@ export class AudioEngine {
     }
     this.clearBgmFade();
     const audio = this.bgmAudio;
-    const startVolume = this.bgmGain ? this.bgmGain.gain.value : audio.volume;
-    const startedAt = Date.now();
-    this.bgmFadeTimer = setInterval(() => {
-      const progress = Math.min(1, (Date.now() - startedAt) / durationMs);
-      this.setBgmLevel(startVolume * (1 - progress));
-      if (progress >= 1) {
-        this.clearBgmFade();
-        audio.pause();
-        this.setBgmLevel(this.bgmVolume());
+    const duration = Math.max(80, durationMs);
+    const token = ++this.bgmFadeToken;
+    this.bgmFading = true;
+    const completeFade = () => {
+      if (token !== this.bgmFadeToken) {
+        return;
       }
-    }, 40);
+      this.bgmFadeTimer = 0;
+      this.bgmFadeFrame = 0;
+      this.bgmFading = false;
+      audio.pause();
+      if (this.bgmGain && this.ctx) {
+        const now = this.ctx.currentTime;
+        try {
+          this.bgmGain.gain.cancelScheduledValues(now);
+          this.bgmGain.gain.setValueAtTime(0.0001, now);
+        } catch {
+          this.bgmGain.gain.value = 0.0001;
+        }
+      } else {
+        audio.volume = 0;
+      }
+    };
+
+    if (this.bgmGain && this.ctx) {
+      const gain = this.bgmGain.gain;
+      const now = this.ctx.currentTime;
+      const startVolume = Math.max(0.0001, gain.value || this.bgmVolume());
+      try {
+        gain.cancelScheduledValues(now);
+        gain.setValueAtTime(startVolume, now);
+        gain.linearRampToValueAtTime(0.0001, now + duration / 1000);
+        this.bgmFadeTimer = setTimeout(completeFade, duration + 120);
+        return;
+      } catch {
+        gain.value = startVolume;
+      }
+    }
+
+    const startVolume = audio.volume;
+    const startedAt = performance.now();
+    const step = (now) => {
+      if (token !== this.bgmFadeToken) {
+        return;
+      }
+      const progress = Math.min(1, (now - startedAt) / duration);
+      audio.volume = startVolume * (1 - progress);
+      if (progress >= 1) {
+        completeFade();
+      } else {
+        this.bgmFadeFrame = requestAnimationFrame(step);
+      }
+    };
+    this.bgmFadeFrame = requestAnimationFrame(step);
   }
 
   playSfx(kind, detail) {

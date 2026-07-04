@@ -1,6 +1,6 @@
 {
-  "version": "319ec0c30ad16ce0",
-  "generatedAt": "2026-07-04T15:03:27.775Z",
+  "version": "bad77a45a72857c0",
+  "generatedAt": "2026-07-04T15:23:05.192Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -40,7 +40,7 @@
     },
     {
       "url": "css/styles.css",
-      "revision": "18fa5ccd4da2f435a8d621bea65fa7606df6b5f62d0aaa618e64c16cbd5961e0"
+      "revision": "9bd0d1abb1638a752fe1e946d2a17360eb83ae3716ca72f6aa5bb0925d6751e1"
     },
     {
       "url": "data/a1-part1.csv",
@@ -196,7 +196,7 @@
     },
     {
       "url": "js/audio.js",
-      "revision": "70ba02f81c1f1441347984abd614633c1012de114e1512cbdeadb60eb3fd16e3"
+      "revision": "7064ac7a861d3bc043c0eda367ab7ca3ed88ffa6dd633e10e0b4a0322606041e"
     },
     {
       "url": "js/config.js",
@@ -216,7 +216,7 @@
     },
     {
       "url": "js/main.js",
-      "revision": "91e5e2ecb9f4fdf4c03c8225bbfb5c21a573b36d35059998bf586eda489c8812"
+      "revision": "a4752ec6b4fe129631ef52bf3d15ab05594836ccc9ed4aecb115a03da6273a19"
     },
     {
       "url": "js/words.js",
