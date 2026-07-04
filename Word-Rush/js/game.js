@@ -24,6 +24,8 @@ const STREAK_SPEED_BONUS = 0.95;
 const CARD_FADE_IN_TIME = 0.18;
 const CARD_FADE_OUT_TIME = 0.24;
 const ANSWER_REVEAL_TIME = 1.12;
+const REVIEW_TOOLTIP_LONG_PRESS_MS = 520;
+const REVIEW_TOOLTIP_TOUCH_MOVE_CANCEL = 10;
 const LANE_KEY_LAYOUTS = {
   1: [["a", "s", "d"]],
   2: [
@@ -172,6 +174,8 @@ export class VocabSprintGame {
     this.colors = {};
     // 学習統計は毎フレーム全単語を走査すると重いので、変化時だけ再計算してキャッシュする。
     this.statsCache = null;
+    this.reviewTooltipPressTimer = 0;
+    this.reviewTooltipPointer = null;
     this.reviewTooltip = this.createReviewTooltip();
     this.audio = new AudioEngine(() => this.state.settings, BGM_TRACKS);
   }
@@ -1228,12 +1232,21 @@ export class VocabSprintGame {
       }
       const detailText = this.reviewDetailText(item);
       row.dataset.tooltipTitle = `${item.english} ： ${item.japanese}`;
-      row.dataset.tooltipDetail = detailText;
+      row.dataset.tooltipDetail = item.detail || "解説なし";
+      row.dataset.tooltipSample = item.sample || "";
+      row.dataset.tooltipSampleJpn = item.sampleJpn || "";
       row.setAttribute("aria-label", `${row.dataset.tooltipTitle} ${detailText}`);
-      row.addEventListener("pointerenter", (event) => this.showReviewTooltip(row, event));
-      row.addEventListener("pointermove", (event) => this.positionReviewTooltip(event));
-      row.addEventListener("pointerleave", () => this.hideReviewTooltip());
+      row.addEventListener("pointerenter", (event) => this.handleReviewPointerEnter(row, event));
+      row.addEventListener("pointerdown", (event) => this.handleReviewPointerDown(row, event));
+      row.addEventListener("pointermove", (event) => this.handleReviewPointerMove(row, event));
+      row.addEventListener("pointerup", (event) => this.handleReviewPointerUp(event));
+      row.addEventListener("pointerleave", (event) => this.handleReviewPointerLeave(event));
       row.addEventListener("pointercancel", () => this.hideReviewTooltip());
+      row.addEventListener("contextmenu", (event) => {
+        if (this.isMobileReviewPointer(event)) {
+          event.preventDefault();
+        }
+      });
       const english = document.createElement("strong");
       english.className = "review-word";
       english.textContent = item.english;
@@ -1295,14 +1308,16 @@ export class VocabSprintGame {
   }
 
   reviewDetailText(item) {
-    // ツールチップ用: 詳細解説のあとに改行し、例文と日本語訳を表示する（「例:」は付けない）。
+    // ツールチップ/aria用: 詳細解説、英語例文、日本語訳をそれぞれ改行して読む。
     const parts = [];
     if (item.detail) {
       parts.push(item.detail);
     }
     if (item.sample) {
-      const sampleJpn = item.sampleJpn ? `（${item.sampleJpn}）` : "";
-      parts.push(`${item.sample}${sampleJpn}`);
+      parts.push(item.sample);
+    }
+    if (item.sampleJpn) {
+      parts.push(item.sampleJpn);
     }
     return parts.join("\n") || "解説なし";
   }
@@ -1315,20 +1330,112 @@ export class VocabSprintGame {
     title.className = "review-tooltip-title";
     const detail = document.createElement("div");
     detail.className = "review-tooltip-detail";
-    root.append(title, detail);
+    const sample = document.createElement("div");
+    sample.className = "review-tooltip-sample";
+    const sampleJpn = document.createElement("div");
+    sampleJpn.className = "review-tooltip-sample-jpn";
+    root.append(title, detail, sample, sampleJpn);
     document.body.appendChild(root);
-    return { root, title, detail };
+    return { root, title, detail, sample, sampleJpn };
   }
 
-  showReviewTooltip(row, event) {
+  handleReviewPointerEnter(row, event) {
+    if (this.isMobileReviewPointer(event)) {
+      return;
+    }
+    this.showReviewTooltip(row, event);
+  }
+
+  handleReviewPointerDown(row, event) {
+    if (!this.isMobileReviewPointer(event) || event.target.closest(".review-links")) {
+      return;
+    }
+    this.hideReviewTooltip();
+    this.clearReviewTooltipPress();
+    this.reviewTooltipPointer = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      shown: false
+    };
+    this.reviewTooltipPressTimer = window.setTimeout(() => {
+      if (!this.reviewTooltipPointer || this.reviewTooltipPointer.id !== event.pointerId) {
+        return;
+      }
+      this.reviewTooltipPointer.shown = true;
+      this.showReviewTooltip(row, event, { fixedMobile: true });
+    }, REVIEW_TOOLTIP_LONG_PRESS_MS);
+  }
+
+  handleReviewPointerMove(row, event) {
+    if (!this.isMobileReviewPointer(event)) {
+      this.positionReviewTooltip(event);
+      return;
+    }
+    if (!this.reviewTooltipPointer || this.reviewTooltipPointer.id !== event.pointerId) {
+      return;
+    }
+    const dx = event.clientX - this.reviewTooltipPointer.x;
+    const dy = event.clientY - this.reviewTooltipPointer.y;
+    if (Math.hypot(dx, dy) >= REVIEW_TOOLTIP_TOUCH_MOVE_CANCEL) {
+      this.clearReviewTooltipPress();
+      if (this.reviewTooltipPointer.shown) {
+        this.hideReviewTooltip();
+      }
+      this.reviewTooltipPointer = null;
+    }
+  }
+
+  handleReviewPointerUp(event) {
+    if (!this.isMobileReviewPointer(event)) {
+      return;
+    }
+    this.clearReviewTooltipPress();
+    if (this.reviewTooltipPointer?.id === event.pointerId) {
+      this.reviewTooltipPointer = null;
+    }
+  }
+
+  handleReviewPointerLeave(event) {
+    if (this.isMobileReviewPointer(event)) {
+      this.clearReviewTooltipPress();
+      return;
+    }
+    this.hideReviewTooltip();
+  }
+
+  isMobileReviewPointer(event) {
+    if (event?.pointerType === "touch") {
+      return true;
+    }
+    return !event?.pointerType && window.matchMedia?.("(hover: none), (pointer: coarse)")?.matches;
+  }
+
+  clearReviewTooltipPress() {
+    if (this.reviewTooltipPressTimer) {
+      window.clearTimeout(this.reviewTooltipPressTimer);
+      this.reviewTooltipPressTimer = 0;
+    }
+  }
+
+  showReviewTooltip(row, event, options = {}) {
     if (!this.reviewTooltip || !row.dataset.tooltipTitle) {
       return;
     }
     this.reviewTooltip.title.textContent = row.dataset.tooltipTitle;
     this.reviewTooltip.detail.textContent = row.dataset.tooltipDetail || "解説なし";
+    this.reviewTooltip.sample.textContent = row.dataset.tooltipSample || "";
+    this.reviewTooltip.sample.classList.toggle("hidden", !row.dataset.tooltipSample);
+    this.reviewTooltip.sampleJpn.textContent = row.dataset.tooltipSampleJpn || "";
+    this.reviewTooltip.sampleJpn.classList.toggle("hidden", !row.dataset.tooltipSampleJpn);
+    this.reviewTooltip.root.classList.toggle("is-mobile-fixed", Boolean(options.fixedMobile));
     this.reviewTooltip.root.classList.remove("hidden");
     this.reviewTooltip.root.setAttribute("aria-hidden", "false");
-    this.positionReviewTooltip(event);
+    if (options.fixedMobile) {
+      this.positionFixedReviewTooltip();
+    } else {
+      this.positionReviewTooltip(event);
+    }
   }
 
   positionReviewTooltip(event) {
@@ -1348,14 +1455,37 @@ export class VocabSprintGame {
     }
     this.reviewTooltip.root.style.left = `${Math.max(margin, x)}px`;
     this.reviewTooltip.root.style.top = `${Math.max(margin, y)}px`;
+    this.reviewTooltip.root.style.width = "";
+  }
+
+  positionFixedReviewTooltip() {
+    if (!this.reviewTooltip || this.reviewTooltip.root.classList.contains("hidden")) {
+      return;
+    }
+    const margin = 10;
+    const panel = this.ui.overlay?.querySelector(".overlay-panel")?.getBoundingClientRect();
+    const title = this.ui.overlayTitle?.getBoundingClientRect();
+    const width = Math.max(260, Math.min(window.innerWidth - margin * 2, (panel?.width || window.innerWidth) - 20));
+    const left = Math.max(margin, Math.min((panel?.left || margin) + 10, window.innerWidth - width - margin));
+    const topBase = title ? title.bottom + 10 : (panel?.top || margin) + 58;
+    const top = Math.max(margin, Math.min(topBase, window.innerHeight - margin - 120));
+    this.reviewTooltip.root.style.left = `${left}px`;
+    this.reviewTooltip.root.style.top = `${top}px`;
+    this.reviewTooltip.root.style.width = `${width}px`;
   }
 
   hideReviewTooltip() {
     if (!this.reviewTooltip) {
       return;
     }
+    this.clearReviewTooltipPress();
+    this.reviewTooltipPointer = null;
     this.reviewTooltip.root.classList.add("hidden");
+    this.reviewTooltip.root.classList.remove("is-mobile-fixed");
     this.reviewTooltip.root.setAttribute("aria-hidden", "true");
+    this.reviewTooltip.root.style.left = "";
+    this.reviewTooltip.root.style.top = "";
+    this.reviewTooltip.root.style.width = "";
   }
 
   createReviewDetail(detailText, sampleText = "", sampleJpnText = "") {
@@ -2792,6 +2922,9 @@ export class VocabSprintGame {
       }
       if (!event.target.closest(".sound-control")) {
         this.setSoundPanelOpen(false);
+      }
+      if (!event.target.closest(".review-item") && !event.target.closest(".review-tooltip")) {
+        this.hideReviewTooltip();
       }
     });
     window.addEventListener("resize", () => {
