@@ -31,9 +31,9 @@ MyShortcuts App Gallery 配布用の単体HTML:
 
 - 本番URL: `https://wordrush.myshortcuts.workers.dev/`
 - Cloudflare Workers Assets 設定: `Word-Rush\wrangler.jsonc`
-- 直近の本番デプロイ Version ID: `f46d0fb7-fb9b-496f-8866-638d7d854ff1`
-- PWA化（インストールボタン、`manifest.webmanifest`、縦向き固定/ガード、横向き時自動一時停止）、ピンチズーム・文字選択抑止、ビジュアル刷新（タイトルフォント、レーン背景アニメ、カード/パーティクル演出）、効果音刷新とカウントダウン音、BGM/SFXベース音量調整、HUDリッチデザイン、Result/Paused画面の表示整理、狭幅時の回答ボタン崩れ修正、safe-area対応、スコア行の固定高/自動縮小、プレイ中だけ描画ループを回す軽量化、iPhone PWAトップバー調整、BGMフェードアウト安定化、lookup iframe Closeボタン強調、結果リストの正誤回数/リンク間隔調整、結果ツールチップの長押し/固定表示対応などを含む最新ローカル変更は本番へデプロイ済み、GitHubにもpush済み（`main` ブランチ）。
-- 最新ローカル `cache-manifest.json` version は `9a5ad1ec041eccd8`。
+- 直近の本番デプロイ Version ID: `f4ccbe72-43c9-452c-a792-507aa9bb7456`
+- PWA化（インストールボタン、`manifest.webmanifest`、縦向き固定/ガード、横向き時自動一時停止）、ピンチズーム・文字選択抑止、ビジュアル刷新（タイトルフォント、レーン背景アニメ、カード/パーティクル演出）、効果音刷新とカウントダウン音、BGM/SFXベース音量調整、HUDリッチデザイン、Result/Paused画面の表示整理、狭幅時の回答ボタン崩れ修正、safe-area対応、スコア行の固定高/自動縮小、プレイ中だけ描画ループを回す軽量化、iPhone PWAトップバー調整、BGMフェードアウト安定化、lookup iframe Closeボタン強調、結果リストの正誤回数/リンク間隔調整、結果ツールチップの長押し/固定表示対応、`Music-2.mp3` 差し替えなどを含む最新ローカル変更は本番へデプロイ済み、GitHubにもpush済み（`main` ブランチ）。
+- 最新ローカル `cache-manifest.json` version は `1bfdc8c7e11c1bc7`。
 
 ## 最近の主な実装
 
@@ -201,6 +201,7 @@ npx --yes wrangler@latest deploy
 - iPhone PWA調整: standalone起動時は狭幅トップバーのRetryキャプションを隠して矢印のみ表示し、`Word Rush` タイトルが省略されないようにした。BGMのフェードアウトはWeb Audioのゲインスケジュールを使い、フェード完了時に音量を即復帰しないよう修正。結果画面から開くlookup iframeのCloseボタンを結果画面Closeと同じゴールド系デザインにした。
 - iPhone PWA再調整: standalone起動時のトップバーをブラウザ表示のコンパクトサイズ（タイトル18px、アイコン34px、Retry表示あり）に揃えた。結果リストの累積正誤回数は小さめにし、`正：x回 誤：x回` の半角スペース表記に変更。リンクボタンは少し右側へ寄せ、正誤回数との間隔を広げた。
 - 結果ツールチップ: 詳細、英語例文、日本語訳を別行表示に変更し、日本語訳は小さめフォントで括弧なし。スマホ/タッチ操作では長押し（約0.5秒）で表示し、移動するとキャンセル。スマホ表示時のみResult見出し直下付近に固定表示する。
+- 音源: `assets/audio/Music-2.mp3` を差し替え済み。`npm run generate:audio` と `npm run generate:cache` を実行し、本番へデプロイ済み。
 
 ## 次チャットで最初に確認すること
 
