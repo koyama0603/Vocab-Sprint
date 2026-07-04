@@ -34,7 +34,7 @@ MyShortcuts App Gallery 配布用の単体HTML:
 - 直近の本番デプロイ Version ID: `ee7da341-a461-4bd7-a3f5-d9ae59afc0c6`
 - その後、ローカルで結果画面フォント拡大、音設定の閉じるボタン、開始画面のレベル/レーン表示拡大、`levels.config.js` の `accel` 調整を実施済み。
 - 上記の最新ローカル変更は、まだ本番へデプロイしていない。
-- 最新ローカル `cache-manifest.json` version は `ff06b0a5ea9c8de2`。
+- 最新ローカル `cache-manifest.json` version は `c055b4d120c2cf35`。
 
 ## 最近の主な実装
 
@@ -61,6 +61,8 @@ MyShortcuts App Gallery 配布用の単体HTML:
   - 現在は `Music-1.mp3` から `Music-8.mp3`。
   - ランダム再生あり。
   - BGM/効果音のON/OFFと音量調整あり。
+  - 音設定パネルで選択中のBGMを試聴可能。
+  - BGMは同じ音量%でも少し小さめ、効果音は少し大きめに聞こえるように出力スケールを調整済み。
   - 単語音声は `assets\word-audio\en-us-edge-tts\<level>\<word-id>.mp3` に生成済み。
   - 生成音声は `edge-tts` の `en-US-JennyNeural`。
   - 現在は7000語分あり、各CSVの `id` をファイル名にしている。
@@ -70,6 +72,8 @@ MyShortcuts App Gallery 配布用の単体HTML:
   - `sw.js` に fetch handler を戻さないこと。
   - `main.js` は既存Service Workerがある場合だけ退役用 `sw.js` を登録する。
   - `_headers` で `/`、`/index.html`、`/sw.js`、`/cache-manifest.json` を `no-store` 系にしている。
+  - `cache-manifest.json` では単語音声7000件を個別列挙せず、`assets\word-audio` を `assetGroups` の1グループとして件数・総バイト・短いrevisionだけ記録する。
+  - 単語音声グループは通常のmanifest version計算から除外しているため、音声だけの軽微な変更ではアプリ本体のversionが変わりにくい。
 
 ## CSVデータ
 
@@ -189,7 +193,12 @@ npx --yes wrangler@latest deploy
 - `levels.config.js` の `accel` 調整。
 - `cache-manifest.json` 更新。
 - `assets\word-audio\en-us-edge-tts` に7000語分の単語MP3を追加。
-- `scripts\generate-cache-manifest.mjs` は `assets\word-audio` も含める。
+- `scripts\generate-cache-manifest.mjs` は `assets\word-audio` を個別assetではなく `assetGroups` として要約する。
+- 直近のUI調整: ボタンデザイン、ロード中の中央エフェクト、結果リストでWrong/Missを上に表示、レーン背景の微ぼかし、残り3秒以下の中央カウントダウン、BGMフェードアウト延長、タイトルパネルのデザイン調整、BGM試聴。
+- 直近のUI調整: 音設定パネルがレーン裏に隠れないよう重なり順を修正。開始画面はタイトル、レベル/レーン選択、統計カード/グラフ、Start、キャッシュ注意文の順に整理。結果画面は右上閉じるボタン、出題一覧だけスクロール、Restart下固定に変更。HUD数値に控えめな発光を追加。
+- 直近のUI調整: プレイ中は音設定ボタンを無効化し、一時停止中は有効。開始画面では戻るボタンを無効化。開始画面の余白、Accuracy表記、レーン選択のダーク表示、結果画面Closeボタン周辺の余白、HUDラベルの発光を調整。
+- 直近のUI調整: 回答後、正解の緑色選択肢だけ文字色を黒のまま維持し、不正解選択肢は従来どおり灰色寄りに表示。
+- 直近のデータ更新: `Word-Rush\data_rc` の修正版CSV 35件を `Word-Rush\data` に反映。全CSVは各200行、列は `id,english,japanese,detail,sample,sample-jpn`。重複IDなし、CSV上の全IDに対応する単語MP3あり。
 
 ## 次チャットで最初に確認すること
 

@@ -48,10 +48,18 @@
               <input id="bgmVolumeInput" type="range" min="0" max="1" step="0.01">
               <strong id="bgmVolumeValue">16%</strong>
             </label>
-            <label class="select-row">
+            <div class="select-row bgm-track-row">
               <span>BGM曲</span>
               <select id="bgmTrackSelect"></select>
-            </label>
+              <button class="bgm-preview-button" id="bgmPreviewButton" type="button" title="BGMを試聴" aria-label="BGMを試聴">
+                <svg class="preview-play-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5l11 7-11 7z"></path>
+                </svg>
+                <svg class="preview-stop-icon hidden" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M7 7h10v10H7z"></path>
+                </svg>
+              </button>
+            </div>
             <label class="switch-row">
               <span>効果音</span>
               <input id="sfxEnabledInput" type="checkbox">
@@ -102,13 +110,19 @@
       <div class="game-shell">
         <canvas id="gameCanvas" width="900" height="620"></canvas>
         <div class="answers" id="answers"></div>
+        <div class="loading-veil hidden" id="loadingVeil" aria-live="polite" aria-label="Loading">
+          <div class="loading-card">
+            <div class="loading-spinner" aria-hidden="true"></div>
+            <span>Loading</span>
+          </div>
+        </div>
+        <div class="countdown-ghost hidden" id="countdownGhost" aria-hidden="true"></div>
         <div class="overlay show" id="overlay">
           <div class="overlay-panel">
-            <h2 id="overlayTitle">Word Rush</h2>
-            <p id="overlayCopy">Loading</p>
-            <div class="overlay-actions">
-              <button class="start-button" id="startButton" type="button" disabled>Start</button>
-              <button class="secondary-button hidden" id="overlayBackButton" type="button">戻る</button>
+            <div class="overlay-head">
+              <h2 id="overlayTitle">Word Rush</h2>
+              <p id="overlayCopy">Loading</p>
+              <button class="result-close-button hidden" id="resultCloseButton" type="button" aria-label="結果画面を閉じる">Close</button>
             </div>
             <div class="overlay-scroll">
               <div class="title-details" id="titleDetails">
@@ -136,25 +150,50 @@
                     </select>
                   </label>
                 </div>
-                <div class="title-current">
-                  <div>
-                    <span>現在の設定</span>
-                    <strong id="currentLevelValue">小学校3年</strong>
+                <section class="title-stats" id="titleStats" aria-label="選択したレベルの統計">
+                  <div class="title-stat-cards">
+                    <div class="title-stat-card">
+                      <span>Play</span>
+                      <strong id="titlePlayCountValue">0回</strong>
+                    </div>
+                    <div class="title-stat-card">
+                      <span>Best</span>
+                      <strong id="titleBestValue">0</strong>
+                    </div>
+                    <div class="title-stat-card">
+                      <span>Learned</span>
+                      <strong id="titleLearnedValue">0 / 0</strong>
+                    </div>
+                    <div class="title-stat-card">
+                      <span>Accuracy</span>
+                      <strong id="titleAccuracyValue">0 / 0</strong>
+                    </div>
                   </div>
-                  <div>
-                    <span>レーン</span>
-                    <strong id="currentLaneValue">3レーン</strong>
+                  <div class="title-chart">
+                    <div class="title-chart-row">
+                      <span>学習済み</span>
+                      <div class="title-chart-track" aria-hidden="true">
+                        <i id="titleLearnedBar"></i>
+                      </div>
+                      <strong id="titleLearnedRate">0%</strong>
+                    </div>
+                    <div class="title-chart-row">
+                      <span>正答率</span>
+                      <div class="title-chart-track" aria-hidden="true">
+                        <i id="titleAccuracyBar"></i>
+                      </div>
+                      <strong id="titleAccuracyRate">0%</strong>
+                    </div>
                   </div>
-                </div>
-                <div class="title-guide">
-                  <span>落ちてくる英単語を素早く消していくゲームです。</span>
-                  <span>落ちてくる英単語の正しい日本語訳を選んでください。</span>
-                  <span>表示されているキー、タップやクリックで選びます。</span>
-                  <span>ブラウザのキャッシュを消去するとハイスコアやプレイ回数などが消えます。</span>
-                </div>
+                </section>
               </div>
               <div class="review-list" id="reviewList"></div>
             </div>
+            <div class="overlay-actions">
+              <button class="start-button" id="startButton" type="button" disabled>Start</button>
+              <button class="secondary-button hidden" id="overlayBackButton" type="button">戻る</button>
+            </div>
+            <p class="title-cache-note" id="titleCacheNote">ブラウザのキャッシュを消去するとハイスコアやプレイ回数などが消えます。</p>
           </div>
         </div>
       </div>

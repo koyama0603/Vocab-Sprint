@@ -60,6 +60,9 @@ export class VocabSprintGame {
       bgmVolume: document.getElementById("bgmVolumeInput"),
       bgmVolumeValue: document.getElementById("bgmVolumeValue"),
       bgmTrack: document.getElementById("bgmTrackSelect"),
+      bgmPreview: document.getElementById("bgmPreviewButton"),
+      bgmPreviewPlayIcon: document.querySelector(".preview-play-icon"),
+      bgmPreviewStopIcon: document.querySelector(".preview-stop-icon"),
       sfxEnabled: document.getElementById("sfxEnabledInput"),
       sfxVolume: document.getElementById("sfxVolumeInput"),
       sfxVolumeValue: document.getElementById("sfxVolumeValue"),
@@ -72,16 +75,25 @@ export class VocabSprintGame {
       backButton: document.getElementById("backButton"),
       gameShell: document.querySelector(".game-shell"),
       answers: document.getElementById("answers"),
+      loadingVeil: document.getElementById("loadingVeil"),
+      countdownGhost: document.getElementById("countdownGhost"),
       overlay: document.getElementById("overlay"),
       overlayTitle: document.getElementById("overlayTitle"),
       overlayCopy: document.getElementById("overlayCopy"),
       overlayScroll: document.querySelector(".overlay-scroll"),
       titleDetails: document.getElementById("titleDetails"),
-      currentLevel: document.getElementById("currentLevelValue"),
-      currentLane: document.getElementById("currentLaneValue"),
+      titlePlayCount: document.getElementById("titlePlayCountValue"),
+      titleBest: document.getElementById("titleBestValue"),
+      titleLearned: document.getElementById("titleLearnedValue"),
+      titleAccuracy: document.getElementById("titleAccuracyValue"),
+      titleLearnedBar: document.getElementById("titleLearnedBar"),
+      titleLearnedRate: document.getElementById("titleLearnedRate"),
+      titleAccuracyBar: document.getElementById("titleAccuracyBar"),
+      titleAccuracyRate: document.getElementById("titleAccuracyRate"),
       reviewList: document.getElementById("reviewList"),
       startButton: document.getElementById("startButton"),
       overlayBackButton: document.getElementById("overlayBackButton"),
+      resultCloseButton: document.getElementById("resultCloseButton"),
       time: document.getElementById("timeValue"),
       elapsed: document.getElementById("elapsedValue"),
       timeBar: document.getElementById("timeBar"),
@@ -330,6 +342,32 @@ export class VocabSprintGame {
     };
   }
 
+  levelSummaryStats() {
+    let learned = 0;
+    let correct = 0;
+    let incorrect = 0;
+    for (const word of this.state.words) {
+      const stats = this.wordStatFor(word);
+      if (stats.seen > 0) {
+        learned += 1;
+      }
+      correct += stats.correct;
+      incorrect += stats.incorrect;
+    }
+    const totalWords = this.state.words.length;
+    const answered = correct + incorrect;
+    const learnedRate = totalWords ? Math.round((learned / totalWords) * 100) : 0;
+    const accuracyRate = answered ? Math.round((correct / answered) * 100) : 0;
+    return {
+      totalWords,
+      learned,
+      correct,
+      answered,
+      learnedRate,
+      accuracyRate
+    };
+  }
+
   updateWordStats(word, outcome) {
     const key = this.wordStatKey(word);
     if (!key) {
@@ -478,9 +516,11 @@ export class VocabSprintGame {
     this.ui.bgmVolumeValue.textContent = this.formatPercent(settings.bgmVolume);
     this.ui.sfxVolumeValue.textContent = this.formatPercent(settings.sfxVolume);
     this.ui.bgmTrack.value = settings.bgmTrack;
+    this.updateBgmPreviewUi();
   }
 
   applySettingsFromInputs() {
+    const previousTrack = this.state.settings.bgmTrack;
     const next = this.normalizeSettings({
       ...this.state.settings,
       bgmEnabled: this.ui.bgmEnabled.checked,
@@ -489,6 +529,9 @@ export class VocabSprintGame {
       sfxVolume: this.ui.sfxVolume.value,
       bgmTrack: this.ui.bgmTrack.value
     });
+    if (previousTrack !== next.bgmTrack || !next.bgmEnabled) {
+      this.audio.stopBgmPreview();
+    }
     this.state.settings = next;
     this.syncSettingsInputs();
     this.saveSettings();
@@ -603,19 +646,67 @@ export class VocabSprintGame {
 
   setSoundPanelOpen(isOpen) {
     this.state.soundPanelOpen = Boolean(isOpen);
+    if (!this.state.soundPanelOpen) {
+      this.audio.stopBgmPreview();
+    }
     this.ui.soundButton.setAttribute("aria-expanded", String(this.state.soundPanelOpen));
     this.ui.soundPanel.classList.toggle("hidden", !this.state.soundPanelOpen);
+    this.updateBgmPreviewUi();
   }
 
   toggleSoundPanel() {
+    if (this.ui.soundButton.disabled) {
+      return;
+    }
     this.setLevelMenuOpen(false);
     this.setSoundPanelOpen(!this.state.soundPanelOpen);
   }
 
+  updateBgmPreviewUi() {
+    if (!this.ui.bgmPreview) {
+      return;
+    }
+    const isPlaying = this.audio.isBgmPreviewing();
+    this.ui.bgmPreview.disabled = !BGM_TRACKS.length || !this.state.settings.bgmEnabled;
+    this.ui.bgmPreview.classList.toggle("is-playing", isPlaying);
+    this.ui.bgmPreview.title = isPlaying ? "試聴を停止" : "BGMを試聴";
+    this.ui.bgmPreview.setAttribute("aria-label", this.ui.bgmPreview.title);
+    this.ui.bgmPreviewPlayIcon?.classList.toggle("hidden", isPlaying);
+    this.ui.bgmPreviewStopIcon?.classList.toggle("hidden", !isPlaying);
+  }
+
+  toggleBgmPreview() {
+    this.audio.toggleBgmPreview(this.state.settings.bgmTrack);
+    this.updateBgmPreviewUi();
+  }
+
   updateTitleDetails() {
     const level = this.activeLevel();
-    this.ui.currentLevel.textContent = `${level.label}（${this.playCountFor(level.id)}回プレイ）`;
-    this.ui.currentLane.textContent = `${this.activeLaneCount()}レーン`;
+    const summary = this.levelSummaryStats();
+    if (this.ui.titlePlayCount) {
+      this.ui.titlePlayCount.textContent = `${this.playCountFor(level.id)}回`;
+    }
+    if (this.ui.titleBest) {
+      this.ui.titleBest.textContent = String(Math.max(this.state.best, this.state.score));
+    }
+    if (this.ui.titleLearned) {
+      this.ui.titleLearned.textContent = `${summary.learned} / ${summary.totalWords}`;
+    }
+    if (this.ui.titleAccuracy) {
+      this.ui.titleAccuracy.textContent = `${summary.correct} / ${summary.answered}`;
+    }
+    if (this.ui.titleLearnedBar) {
+      this.ui.titleLearnedBar.style.width = `${summary.learnedRate}%`;
+    }
+    if (this.ui.titleLearnedRate) {
+      this.ui.titleLearnedRate.textContent = `${summary.learnedRate}%`;
+    }
+    if (this.ui.titleAccuracyBar) {
+      this.ui.titleAccuracyBar.style.width = `${summary.accuracyRate}%`;
+    }
+    if (this.ui.titleAccuracyRate) {
+      this.ui.titleAccuracyRate.textContent = `${summary.accuracyRate}%`;
+    }
   }
 
   cssVar(name, fallback) {
@@ -644,7 +735,8 @@ export class VocabSprintGame {
       showTitleDetails: true,
       obscureBoard: !stayOnResult,
       resultMode: stayOnResult,
-      titleMode: !stayOnResult
+      titleMode: !stayOnResult,
+      loadingMode: true
     });
     this.updateUi();
     this.drawBoard();
@@ -1060,7 +1152,16 @@ export class VocabSprintGame {
     title.textContent = "出題リスト";
     this.ui.reviewList.appendChild(title);
 
-    for (const item of this.state.review.values()) {
+    const reviewItems = Array.from(this.state.review.values())
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => {
+        const aNeedsReview = a.item.wrong || a.item.miss ? 1 : 0;
+        const bNeedsReview = b.item.wrong || b.item.miss ? 1 : 0;
+        return bNeedsReview - aNeedsReview || a.index - b.index;
+      })
+      .map((entry) => entry.item);
+
+    for (const item of reviewItems) {
       const row = document.createElement("div");
       row.className = "review-item";
       if (item.wrong || item.miss) {
@@ -1526,6 +1627,7 @@ export class VocabSprintGame {
       return;
     }
     this.audio.init();
+    this.audio.stopBgmPreview();
     this.state.rngSeed = this.createSeed();
     this.state.phase = "playing";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
@@ -1561,7 +1663,7 @@ export class VocabSprintGame {
       return;
     }
     this.state.phase = "over";
-    this.audio.fadeOutBgm(1200);
+    this.audio.fadeOutBgm(1800);
     this.saveBest();
     this.showResultOverlay({ fadeIn: true });
     this.addFeed(`Finish: ${this.state.score}`);
@@ -1789,7 +1891,7 @@ export class VocabSprintGame {
 
     const t = now * 0.001;
     const transparent = "rgba(255, 255, 255, 0)";
-    const steps = 9;
+    const steps = 18;
     const ribbons = [
       { color: flow.coolMid, thickness: 0.36, speed: 24, freq: 1.6, sway: 0.55, seed: laneIndex * 173.3 },
       { color: flow.warmMid, thickness: 0.28, speed: 17, freq: 2.2, sway: 0.42, seed: 91.7 + laneIndex * 211.9 },
@@ -1797,6 +1899,7 @@ export class VocabSprintGame {
       { color: flow.coolSoft, thickness: 0.3, speed: 12, freq: 2.8, sway: 0.35, seed: 139.4 + laneIndex * 53.7 }
     ];
 
+    ctx.filter = "blur(0.65px)";
     for (const ribbon of ribbons) {
       const band = height * ribbon.thickness;
       const travel = height + band * 2;
@@ -1825,6 +1928,7 @@ export class VocabSprintGame {
       }
     }
 
+    ctx.filter = "none";
     const gx = x + laneWidth * (0.5 + Math.sin(t * 0.33 + laneIndex * 1.9) * 0.42);
     const gy = height * (0.5 + Math.cos(t * 0.26 + laneIndex * 1.3) * 0.44);
     const gr = Math.max(laneWidth * 0.9, height * 0.4);
@@ -2275,7 +2379,7 @@ export class VocabSprintGame {
     this.syncSettingsInputs();
     this.showOverlay("Result", `Score ${this.state.score} / Best ${this.state.best}`, "Restart", {
       showBack: false,
-      showTitleDetails: true,
+      showTitleDetails: false,
       obscureBoard: true,
       resultMode: true,
       fadeIn: Boolean(options.fadeIn)
@@ -2290,10 +2394,12 @@ export class VocabSprintGame {
     this.ui.startButton.textContent = buttonText;
     this.ui.titleDetails.classList.toggle("hidden", !options.showTitleDetails);
     this.ui.overlayBackButton.classList.toggle("hidden", !options.showBack);
+    this.ui.resultCloseButton?.classList.toggle("hidden", !options.resultMode);
     this.ui.gameShell.classList.toggle("is-obscured", Boolean(options.obscureBoard));
     this.ui.overlay.classList.toggle("result-mode", Boolean(options.resultMode));
     this.ui.overlay.classList.toggle("title-mode", Boolean(options.titleMode));
     this.ui.overlay.classList.toggle("pause-mode", Boolean(options.pauseMode));
+    this.ui.overlay.classList.toggle("loading-mode", Boolean(options.loadingMode));
     document.body.classList.toggle("is-result-overlay", Boolean(options.resultMode));
     this.ui.overlay.classList.remove("fade-in");
     if (options.fadeIn) {
@@ -2305,7 +2411,8 @@ export class VocabSprintGame {
 
   hideOverlay() {
     this.ui.overlay.classList.remove("show");
-    this.ui.overlay.classList.remove("fade-in", "result-mode", "title-mode", "pause-mode");
+    this.ui.overlay.classList.remove("fade-in", "result-mode", "title-mode", "pause-mode", "loading-mode");
+    this.ui.resultCloseButton?.classList.add("hidden");
     this.ui.gameShell.classList.remove("is-obscured");
     document.body.classList.remove("is-result-overlay");
   }
@@ -2321,6 +2428,15 @@ export class VocabSprintGame {
     const isError = this.state.phase === "error";
     document.body.dataset.lanes = String(this.activeLaneCount());
     this.ui.answers.style.setProperty("--lane-count", String(this.activeLaneCount()));
+    this.ui.gameShell.classList.toggle("is-loading", isBusy);
+    this.ui.loadingVeil?.classList.toggle("hidden", !isBusy);
+    const countdown = this.state.phase === "playing" && this.state.timeLeft > 0 && this.state.timeLeft <= 3
+      ? String(Math.ceil(this.state.timeLeft))
+      : "";
+    if (this.ui.countdownGhost) {
+      this.ui.countdownGhost.textContent = countdown;
+      this.ui.countdownGhost.classList.toggle("hidden", !countdown);
+    }
     this.ui.phase.textContent = this.state.phase === "playing"
       ? "Running"
       : this.state.phase === "paused"
@@ -2356,6 +2472,10 @@ export class VocabSprintGame {
       this.ui.unlearnedCount.textContent = String(learningCounts.unlearned);
     }
 
+    const isPlaying = this.state.phase === "playing";
+    if (isPlaying && this.state.soundPanelOpen) {
+      this.setSoundPanelOpen(false);
+    }
     const canPause = this.state.phase === "playing" || this.state.phase === "paused";
     this.ui.pauseButton.disabled = !canPause;
     this.ui.pauseButton.title = this.state.phase === "paused" ? "再開" : "一時停止";
@@ -2363,16 +2483,18 @@ export class VocabSprintGame {
     this.ui.pauseIcon.classList.toggle("hidden", this.state.phase === "paused");
     this.ui.playIcon.classList.toggle("hidden", this.state.phase !== "paused");
     const audioOn = this.state.settings.bgmEnabled || this.state.settings.sfxEnabled;
-    this.ui.soundButton.title = "音設定";
+    this.ui.soundButton.disabled = isPlaying;
+    this.ui.soundButton.title = isPlaying ? "一時停止中に音設定" : "音設定";
     this.ui.soundButton.setAttribute("aria-label", this.ui.soundButton.title);
     this.ui.soundOnIcon.classList.toggle("hidden", !audioOn);
     this.ui.soundOffIcon.classList.toggle("hidden", audioOn);
+    this.updateBgmPreviewUi();
     this.ui.themeLightIcon?.classList.toggle("hidden", this.state.theme === "light");
     this.ui.themeDarkIcon?.classList.toggle("hidden", this.state.theme !== "light");
     this.ui.level.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy;
     this.ui.levelButton.disabled = this.ui.level.disabled;
     this.ui.laneCount.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy;
-    this.ui.backButton.disabled = isBusy;
+    this.ui.backButton.disabled = isBusy || this.state.phase === "ready";
     this.ui.startButton.disabled = isBusy || isError || !this.state.words.length;
     this.updateTitleDetails();
   }
@@ -2418,6 +2540,7 @@ export class VocabSprintGame {
       }
     });
     this.ui.overlayBackButton.addEventListener("click", () => this.returnToTitle());
+    this.ui.resultCloseButton?.addEventListener("click", () => this.returnToTitle());
     this.ui.backButton.addEventListener("click", () => this.returnToTitle());
     this.ui.levelButton.addEventListener("click", () => this.toggleLevelMenu());
     this.ui.soundButton.addEventListener("click", () => this.toggleSoundPanel());
@@ -2425,6 +2548,10 @@ export class VocabSprintGame {
       event.stopPropagation();
       this.setSoundPanelOpen(false);
       this.ui.soundButton.focus();
+    });
+    this.ui.bgmPreview?.addEventListener("click", (event) => {
+      event.stopPropagation();
+      this.toggleBgmPreview();
     });
     this.ui.themeButton?.addEventListener("click", () => this.toggleTheme());
     this.ui.pauseButton.addEventListener("click", () => this.pauseGame());

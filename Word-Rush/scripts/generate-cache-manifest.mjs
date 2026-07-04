@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,8 +14,14 @@ const INCLUDE = [
   "js",
   "data",
   path.join("assets", "icons"),
-  path.join("assets", "audio"),
-  path.join("assets", "word-audio")
+  path.join("assets", "audio")
+];
+const ASSET_GROUPS = [
+  {
+    path: path.join("assets", "word-audio"),
+    revisionPolicy: "path-size",
+    versionPolicy: "ignored"
+  }
 ];
 const ALLOWED_EXTENSIONS = new Set([".html", ".css", ".js", ".json", ".csv", ".svg", ".mp3"]);
 const EXCLUDED_FILES = new Set(["cache-manifest.json"]);
@@ -46,12 +52,14 @@ async function collectFiles(entry) {
   }
 
   try {
-    const stats = await readdir(fullPath, { withFileTypes: true });
-    if (stats) {
+    const stats = await stat(fullPath);
+    if (stats.isDirectory()) {
       await walk(fullPath);
+    } else if (stats.isFile() && ALLOWED_EXTENSIONS.has(path.extname(fullPath).toLowerCase())) {
+      files.push(fullPath);
     }
   } catch {
-    files.push(fullPath);
+    return [];
   }
 
   return files;
@@ -60,6 +68,27 @@ async function collectFiles(entry) {
 async function fileHash(filePath) {
   const bytes = await readFile(filePath);
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+async function summarizeAssetGroup(group) {
+  const files = await collectFiles(group.path);
+  const entries = [];
+  let bytes = 0;
+
+  for (const filePath of files) {
+    const fileStats = await stat(filePath);
+    bytes += fileStats.size;
+    entries.push(`${toUrlPath(filePath)}:${fileStats.size}`);
+  }
+
+  return {
+    url: group.path.replace(/\\/g, "/"),
+    files: files.length,
+    bytes,
+    revision: createHash("sha256").update(entries.join("\n")).digest("hex").slice(0, 16),
+    revisionPolicy: group.revisionPolicy,
+    versionPolicy: group.versionPolicy
+  };
 }
 
 async function main() {
@@ -80,6 +109,11 @@ async function main() {
     });
   }
 
+  const assetGroups = [];
+  for (const group of ASSET_GROUPS) {
+    assetGroups.push(await summarizeAssetGroup(group));
+  }
+
   const version = createHash("sha256")
     .update(assets.map((asset) => `${asset.url}:${asset.revision}`).join("\n"))
     .digest("hex")
@@ -87,11 +121,12 @@ async function main() {
   const manifest = {
     version,
     generatedAt: new Date().toISOString(),
-    assets
+    assets,
+    assetGroups
   };
 
   await writeFile(OUTPUT, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
-  console.log(`Generated cache-manifest.json (${assets.length} assets, version ${version}).`);
+  console.log(`Generated cache-manifest.json (${assets.length} assets, ${assetGroups.length} groups, version ${version}).`);
 }
 
 main().catch((error) => {

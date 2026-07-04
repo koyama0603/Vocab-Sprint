@@ -1,3 +1,7 @@
+const BGM_OUTPUT_SCALE = 0.72;
+const SFX_OUTPUT_SCALE = 1.16;
+const SFX_MAX_GAIN = 1.16;
+
 export class AudioEngine {
   constructor(getSettings, bgmTracks = []) {
     this.getSettings = getSettings;
@@ -6,6 +10,9 @@ export class AudioEngine {
     this.bgmAudio = null;
     this.bgmAudioPool = new Map();
     this.bgmSources = new Map();
+    this.previewTrackId = "";
+    this.previewAudio = null;
+    this.previewAudioPool = new Map();
     this.bgmGain = null;
     this.bgmFadeTimer = 0;
     this.ctx = null;
@@ -34,11 +41,11 @@ export class AudioEngine {
   }
 
   bgmVolume() {
-    return this.clampVolume(this.settings().bgmVolume, 0.15);
+    return Math.max(0, Math.min(1, this.clampVolume(this.settings().bgmVolume, 0.15) * BGM_OUTPUT_SCALE));
   }
 
   sfxVolume() {
-    return this.clampVolume(this.settings().sfxVolume, 0.7);
+    return Math.max(0, Math.min(SFX_MAX_GAIN, this.clampVolume(this.settings().sfxVolume, 0.7) * SFX_OUTPUT_SCALE));
   }
 
   setTracks(tracks) {
@@ -168,6 +175,16 @@ export class AudioEngine {
     return this.bgmTracks[index] || this.bgmTracks[0];
   }
 
+  choosePreviewTrack(trackId) {
+    if (!this.bgmTracks.length) {
+      return null;
+    }
+    if (trackId && trackId !== "random") {
+      return this.bgmTracks.find((track) => track.id === trackId) || this.bgmTracks[0];
+    }
+    return this.bgmTracks[Math.floor(Math.random() * this.bgmTracks.length)] || this.bgmTracks[0];
+  }
+
   ensureBgmAudio(track, restart = false) {
     if (!track || !globalThis.Audio) {
       return null;
@@ -197,11 +214,66 @@ export class AudioEngine {
     return audio;
   }
 
+  ensurePreviewAudio(track) {
+    if (!track || !globalThis.Audio) {
+      return null;
+    }
+    let audio = this.previewAudioPool.get(track.id);
+    if (!audio) {
+      audio = new Audio();
+      audio.loop = true;
+      audio.preload = "auto";
+      audio.src = track.src;
+      audio.load();
+      this.previewAudioPool.set(track.id, audio);
+    }
+    audio.volume = this.bgmVolume();
+    return audio;
+  }
+
+  isBgmPreviewing() {
+    return Boolean(this.previewAudio && this.previewTrackId);
+  }
+
+  stopBgmPreview() {
+    for (const audio of this.previewAudioPool.values()) {
+      audio.pause();
+    }
+    this.previewAudio = null;
+    this.previewTrackId = "";
+  }
+
+  startBgmPreview(trackId) {
+    const track = this.choosePreviewTrack(trackId);
+    const audio = this.ensurePreviewAudio(track);
+    if (!audio) {
+      return false;
+    }
+    this.stopBgmPreview();
+    this.previewAudio = audio;
+    this.previewTrackId = track.id;
+    audio.volume = this.bgmVolume();
+    audio.currentTime = 0;
+    audio.play().catch(() => {
+      this.stopBgmPreview();
+    });
+    return true;
+  }
+
+  toggleBgmPreview(trackId) {
+    if (this.isBgmPreviewing()) {
+      this.stopBgmPreview();
+      return false;
+    }
+    return this.startBgmPreview(trackId);
+  }
+
   startBgm(getPhase, options = {}) {
     if (!this.bgmEnabled() || getPhase() !== "playing" || !globalThis.Audio) {
       return;
     }
     this.clearBgmFade();
+    this.stopBgmPreview();
     const track = this.chooseTrack(Boolean(options.restart));
     const audio = this.ensureBgmAudio(track, Boolean(options.restart));
     if (!audio) {
@@ -218,6 +290,9 @@ export class AudioEngine {
     }
     if (this.bgmAudio) {
       this.setBgmLevel(this.bgmVolume());
+    }
+    if (this.previewAudio) {
+      this.previewAudio.volume = this.bgmVolume();
     }
     if (!this.bgmEnabled()) {
       this.stopBgm();
