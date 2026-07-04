@@ -1261,7 +1261,7 @@ export class VocabSprintGame {
       const cumulativeStats = this.wordStatFor(item);
       const cumulative = document.createElement("span");
       cumulative.className = "review-cumulative";
-      cumulative.textContent = `正：${cumulativeStats.correct}回　誤：${cumulativeStats.incorrect}回`;
+      cumulative.textContent = `正：${cumulativeStats.correct}回 誤：${cumulativeStats.incorrect}回`;
       status.append(statusLabel, cumulative);
       const detail = this.createReviewDetail(item.detail || "", item.sample || "", item.sampleJpn || "");
       const links = document.createElement("span");
