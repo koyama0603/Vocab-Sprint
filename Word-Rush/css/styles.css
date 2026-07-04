@@ -144,12 +144,88 @@ body {
   background: var(--page-bg);
   color: var(--ink);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* テキスト入力欄だけは選択・操作を許可 */
+input[type="text"],
+input[type="number"],
+input[type="search"],
+textarea {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  user-select: text;
 }
 
 button,
 select,
 input {
   font: inherit;
+}
+
+.rotate-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: none;
+  place-items: center;
+  padding: 24px;
+  background: var(--page-bg);
+  color: var(--ink);
+  text-align: center;
+}
+
+.rotate-guard-inner {
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  max-width: 320px;
+}
+
+.rotate-guard svg {
+  width: 72px;
+  height: 72px;
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: rotateHint 2.4s ease-in-out infinite;
+}
+
+.rotate-guard-title {
+  font-family: "Exo 2", system-ui, sans-serif;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.rotate-guard-copy {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+@keyframes rotateHint {
+  0%, 45% { transform: rotate(0deg); }
+  70%, 100% { transform: rotate(-90deg); }
+}
+
+/* スマホ横向き時は縦向きを促すガードを表示 */
+@media (orientation: landscape) and (max-height: 560px) {
+  .rotate-guard {
+    display: grid;
+  }
+
+  .app {
+    display: none;
+  }
 }
 
 .app {
@@ -605,7 +681,7 @@ select:hover:not(:disabled) {
 .secondary-button:disabled,
 .level-picker-button:disabled,
 select:disabled {
-  cursor: not-allowed;
+  cursor: default;
   opacity: 0.48;
   box-shadow: none;
   transform: none;
@@ -809,6 +885,13 @@ canvas {
   background: var(--answer-hover-bg);
 }
 
+@media (hover: none) {
+  .answer-button:hover:not(:disabled) {
+    border-color: var(--answer-border);
+    background: var(--answer-bg);
+  }
+}
+
 .answer-button:focus {
   outline: none;
 }
@@ -850,7 +933,7 @@ canvas {
   border-radius: 7px;
   background: var(--key-bg);
   color: var(--gold);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
 }
 
@@ -891,6 +974,7 @@ body[data-lanes="1"] .answer-button {
 body[data-lanes="1"] .answer-button .key {
   width: 34px;
   height: 34px;
+  font-size: 16px;
 }
 
 body[data-lanes="1"] .answer-button .word {
@@ -960,6 +1044,7 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 }
 
 .overlay-panel {
+  position: relative;
   width: min(540px, 100%);
   max-height: min(620px, calc(100% - 32px));
   min-height: 0;
@@ -971,6 +1056,54 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   border: 1px solid rgba(241, 244, 238, 0.18);
   border-radius: 8px;
   box-shadow: var(--shadow);
+}
+
+/* PWAインストールボタン（スタート画面の左下）。既定は非表示。 */
+.pwa-install-button {
+  position: absolute;
+  z-index: 5;
+  bottom: 12px;
+  left: 12px;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px 0 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  background: var(--button-secondary-bg, var(--control-bg));
+  box-shadow: var(--button-shadow, none);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.pwa-install-button svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pwa-install-button:hover {
+  border-color: var(--cyan);
+  background: var(--button-secondary-hover-bg, var(--answer-hover-bg));
+}
+
+/* インストール可能で、かつタイトル画面のときだけ表示する。 */
+body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
+  display: inline-flex;
+}
+
+/* すでにアプリ（standalone）として起動している場合は常に非表示。 */
+@media (display-mode: standalone) {
+  .pwa-install-button {
+    display: none !important;
+  }
 }
 
 .overlay-head {
@@ -1005,14 +1138,17 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   display: grid;
   place-items: center;
   padding: 0 12px;
-  border: 1px solid var(--control-border);
+  border: 1px solid var(--button-primary-border);
   border-radius: 8px;
-  background: var(--button-secondary-bg);
-  color: var(--ink);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), var(--button-shadow);
+  background: var(--button-primary-bg);
+  color: var(--button-primary-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--gold) 22%, transparent),
+    var(--button-shadow);
   cursor: pointer;
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 950;
   line-height: 1;
   transition:
     background 160ms ease,
@@ -1022,9 +1158,12 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 }
 
 .result-close-button:hover:not(:disabled) {
-  border-color: rgba(97, 191, 209, 0.58);
-  background: var(--button-secondary-hover-bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), var(--button-shadow-hover);
+  border-color: var(--button-primary-border);
+  background: var(--button-primary-hover-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 0 0 1px color-mix(in srgb, var(--gold) 34%, transparent),
+    var(--button-shadow-hover);
   transform: translateY(-1px);
 }
 
@@ -1542,6 +1681,7 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   color: var(--muted);
   font-size: 27px;
   font-weight: 780;
+  white-space: pre-line;
 }
 
 .lookup-modal {
@@ -1677,10 +1817,15 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   align-content: start;
   gap: 10px;
   padding: 12px;
-  background: var(--surface);
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 46%),
+    linear-gradient(180deg, color-mix(in srgb, var(--cyan) 9%, transparent), transparent 38%),
+    var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
+  border-radius: 10px;
+  box-shadow:
+    var(--shadow),
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 10%, transparent);
   overflow: hidden;
 }
 
@@ -1689,6 +1834,39 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 .level-meta,
 .feed {
   min-width: 0;
+}
+
+/* スコア系パネルをシックなカードに仕立てる。 */
+.timer-block,
+.stats,
+.level-meta {
+  padding: 10px 11px;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 10px;
+  background:
+    linear-gradient(158deg, color-mix(in srgb, var(--ink) 6%, transparent), transparent 60%),
+    var(--review-bg);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent),
+    0 4px 14px color-mix(in srgb, #000 18%, transparent);
+}
+
+.hud-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.hud-caption::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 40%, transparent), transparent);
 }
 
 .label-row,
@@ -1722,10 +1900,13 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 
 .timer-value {
   margin: 5px 0;
+  min-width: 3ch;
   color: var(--gold);
   font-size: 48px;
   font-weight: 950;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.14),
     0 0 13px color-mix(in srgb, var(--gold), transparent 56%),
@@ -1735,22 +1916,26 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 .timer-line {
   display: flex;
   align-items: flex-end;
+  justify-content: space-between;
   gap: 10px;
 }
 
 .elapsed-value {
+  flex: 0 0 auto;
   display: grid;
   gap: 2px;
   margin-bottom: 6px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 850;
+  text-align: right;
 }
 
 .elapsed-value strong {
   color: var(--ink);
   font-size: 14px;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .meter {
@@ -1788,9 +1973,18 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 .stat-row strong {
   color: var(--ink);
   font-size: 18px;
+  font-variant-numeric: tabular-nums;
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.1),
     0 0 10px rgba(97, 191, 209, 0.24);
+}
+
+#scoreValue {
+  color: var(--gold);
+  font-size: 21px;
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 12px color-mix(in srgb, var(--gold), transparent 58%);
 }
 
 .divider {
@@ -1838,12 +2032,19 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 
   .hud {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: start;
+    align-items: stretch;
     overflow: hidden;
   }
 
+  .timer-block,
+  .stats,
+  .level-meta {
+    padding: 8px 9px;
+  }
+
   .divider,
-  .feed {
+  .feed,
+  .hud-caption {
     display: none;
   }
 
@@ -2103,7 +2304,7 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   .answer-button .key {
     width: 22px;
     height: 22px;
-    font-size: 11px;
+    font-size: 12.5px;
   }
 
   .answer-button .word {
@@ -2382,7 +2583,7 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   .answer-button .key {
     width: 20px;
     height: 20px;
-    font-size: 10px;
+    font-size: 11.5px;
   }
 
   .answer-button .word {
@@ -2435,6 +2636,13 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
     padding-inline: 8px;
+  }
+
+  /* キー非表示時は data-lanes 別のグリッド定義も単一列に揃える（訳語がキー列に潰れるのを防ぐ）。 */
+  body[data-lanes="1"] .answer-button,
+  body[data-lanes="2"] .answer-button,
+  body[data-lanes="3"] .answer-button {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .answer-button .key {

@@ -2,15 +2,32 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title>Word Rush</title>
   <link rel="icon" href="assets/icons/favicon.svg" type="image/svg+xml" sizes="any">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#080b0c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Word Rush">
+  <link rel="apple-touch-icon" href="assets/icons/favicon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,700..900;1,700..900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body data-theme="dark" data-lanes="3">
+  <div class="rotate-guard" aria-hidden="true">
+    <div class="rotate-guard-inner">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="7" y="2" width="10" height="20" rx="2"></rect>
+        <path d="M11 18h2"></path>
+      </svg>
+      <div class="rotate-guard-title">縦向きにしてください</div>
+      <p class="rotate-guard-copy">Word Rush は縦向き（ポートレート）でプレイできます。端末を縦にしてください。</p>
+    </div>
+  </div>
   <main class="app">
     <header class="topbar">
       <div class="brand">
@@ -46,7 +63,7 @@
             <label class="range-row">
               <span>BGM音量</span>
               <input id="bgmVolumeInput" type="range" min="0" max="1" step="0.01">
-              <strong id="bgmVolumeValue">16%</strong>
+              <strong id="bgmVolumeValue">50%</strong>
             </label>
             <div class="select-row bgm-track-row">
               <span>BGM曲</span>
@@ -67,7 +84,7 @@
             <label class="range-row">
               <span>効果音量</span>
               <input id="sfxVolumeInput" type="range" min="0" max="1" step="0.01">
-              <strong id="sfxVolumeValue">52%</strong>
+              <strong id="sfxVolumeValue">50%</strong>
             </label>
           </div>
         </div>
@@ -96,12 +113,12 @@
             <path d="M8 5l11 7-11 7z"></path>
           </svg>
         </button>
-        <button class="back-button" id="backButton" type="button" title="戻る" aria-label="戻る">
+        <button class="back-button" id="backButton" type="button" title="Retry" aria-label="Retry">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M19 12H5"></path>
             <path d="M12 19l-7-7 7-7"></path>
           </svg>
-          <span>戻る</span>
+          <span>Retry</span>
         </button>
       </div>
     </header>
@@ -119,6 +136,14 @@
         <div class="countdown-ghost hidden" id="countdownGhost" aria-hidden="true"></div>
         <div class="overlay show" id="overlay">
           <div class="overlay-panel">
+            <button class="pwa-install-button hidden" id="pwaInstallButton" type="button" title="ホーム画面に追加" aria-label="ホーム画面に追加（アプリとしてインストール）">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3v11"></path>
+                <path d="M8 11l4 4 4-4"></path>
+                <path d="M5 20h14"></path>
+              </svg>
+              <span>アプリ化</span>
+            </button>
             <div class="overlay-head">
               <h2 id="overlayTitle">Word Rush</h2>
               <p id="overlayCopy">Loading</p>
@@ -202,7 +227,6 @@
         <section class="timer-block">
           <div class="label-row">
             <span>Time Left</span>
-            <span id="levelLabel">小学校3年</span>
           </div>
           <div class="timer-line">
             <div class="timer-value" id="timeValue">60</div>
@@ -237,7 +261,9 @@
           <div class="stat-row"><span>Unlearned</span><strong id="unlearnedCountValue">0</strong></div>
         </section>
 
-        <section class="feed" id="feed" aria-label="ログ"></section>
+        <div class="divider hud-history-divider" aria-hidden="true"></div>
+        <div class="hud-caption hud-history-caption">History</div>
+        <section class="feed" id="feed" aria-label="プレイ履歴"></section>
       </aside>
     </section>
 

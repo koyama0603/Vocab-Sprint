@@ -10,6 +10,7 @@ const OUTPUT = path.join(ROOT, "cache-manifest.json");
 const INCLUDE = [
   "index.html",
   "sw.js",
+  "manifest.webmanifest",
   "css",
   "js",
   "data",
@@ -23,7 +24,7 @@ const ASSET_GROUPS = [
     versionPolicy: "ignored"
   }
 ];
-const ALLOWED_EXTENSIONS = new Set([".html", ".css", ".js", ".json", ".csv", ".svg", ".mp3"]);
+const ALLOWED_EXTENSIONS = new Set([".html", ".css", ".js", ".json", ".csv", ".svg", ".mp3", ".webmanifest"]);
 const EXCLUDED_FILES = new Set(["cache-manifest.json"]);
 
 function toUrlPath(filePath) {

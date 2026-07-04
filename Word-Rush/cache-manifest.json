@@ -1,6 +1,6 @@
 {
-  "version": "a67d75579798a51b",
-  "generatedAt": "2026-07-04T10:05:20.089Z",
+  "version": "f89f45dd5ee20fcf",
+  "generatedAt": "2026-07-04T13:51:02.854Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -40,7 +40,7 @@
     },
     {
       "url": "css/styles.css",
-      "revision": "9ca078c6cb6ae12add712f94d8f17c34ec043722b6fed36425fb1a89d02d5219"
+      "revision": "725735ef5da6fbc51e9e48cb11922a9afac1430cc2b9640c719b409ecb292611"
     },
     {
       "url": "data/a1-part1.csv",
@@ -188,7 +188,7 @@
     },
     {
       "url": "index.html",
-      "revision": "65777011463f4199497e799434ba4cb3ed94ba4ef06859d1d75ac808c8956b4e"
+      "revision": "be14b6facf58dbf90eb63e5728d6fcf63e08a22e43a9ba45415357e91c25c610"
     },
     {
       "url": "js/audio-tracks.js",
@@ -196,15 +196,15 @@
     },
     {
       "url": "js/audio.js",
-      "revision": "5f93507ce190854ce79d1830f06c4da268d8108fcd969bdc83246058ab1c5b81"
+      "revision": "70ba02f81c1f1441347984abd614633c1012de114e1512cbdeadb60eb3fd16e3"
     },
     {
       "url": "js/config.js",
-      "revision": "69d99b1d790c47d154fb550065ec5525877977a74bc1c802ea09dde10197c058"
+      "revision": "8604e687962d519ba972922a90800def2dee0b9f75f066e8323b42794cdd2ae1"
     },
     {
       "url": "js/game.js",
-      "revision": "419d96fae7505d8f575cc5ae6e556d0907d28e0d706876b723654301d7fcd9fe"
+      "revision": "4d1f3a2d136156b80c8c3ae929696f0fcb448f447f2a1895ec49fd7bde4fb9a5"
     },
     {
       "url": "js/levels.config.js",
@@ -216,11 +216,15 @@
     },
     {
       "url": "js/main.js",
-      "revision": "5a89813f1480fc1f3fad8ed93e15be36f1aaac6211a007bf7bd4be32a0bce5e2"
+      "revision": "91e5e2ecb9f4fdf4c03c8225bbfb5c21a573b36d35059998bf586eda489c8812"
     },
     {
       "url": "js/words.js",
       "revision": "7887ede796121f091799da15f5c6927876a827fee8a56cfc9c6a283523411d51"
+    },
+    {
+      "url": "manifest.webmanifest",
+      "revision": "5db53f3b4e6d2190a7c244652dd79d983b1c59e4e1a3532a83ac1fab4a9696b7"
     },
     {
       "url": "sw.js",

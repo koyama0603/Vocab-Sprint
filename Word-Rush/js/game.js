@@ -141,6 +141,7 @@ export class VocabSprintGame {
       timeLeft: RUN_TIME,
       elapsed: 0,
       lastTime: 0,
+      countdownSecond: 0,
       feedback: [],
       review: new Map(),
       recent: [],
@@ -1177,7 +1178,7 @@ export class VocabSprintGame {
       row.addEventListener("pointercancel", () => this.hideReviewTooltip());
       const english = document.createElement("strong");
       english.className = "review-word";
-      english.textContent = item.count > 1 ? `${item.english} x${item.count}` : item.english;
+      english.textContent = item.english;
       const japanese = document.createElement("span");
       japanese.className = "review-meaning";
       japanese.textContent = item.japanese;
@@ -1236,15 +1237,16 @@ export class VocabSprintGame {
   }
 
   reviewDetailText(item) {
+    // ツールチップ用: 詳細解説のあとに改行し、例文と日本語訳を表示する（「例:」は付けない）。
     const parts = [];
     if (item.detail) {
       parts.push(item.detail);
     }
     if (item.sample) {
       const sampleJpn = item.sampleJpn ? `（${item.sampleJpn}）` : "";
-      parts.push(`例: ${item.sample}${sampleJpn}`);
+      parts.push(`${item.sample}${sampleJpn}`);
     }
-    return parts.join(" / ") || "解説なし";
+    return parts.join("\n") || "解説なし";
   }
 
   createReviewTooltip() {
@@ -1502,24 +1504,30 @@ export class VocabSprintGame {
     }
   }
 
+  refreshAnswerButtons() {
+    this.renderAnswerButtons();
+    this.clearAnswerFocus();
+  }
+
   answerFontRange() {
     const lanes = this.activeLaneCount();
     const narrow = window.innerWidth <= 620;
     const shallow = window.innerHeight <= 700;
     const veryShallow = window.innerHeight <= 560;
-    let max = lanes === 1 ? 24 : lanes === 2 ? 20 : 16.5;
+    // max は枠に収まる場合のデフォルト表示サイズ。min まで横幅に応じて縮小する。
+    let max = lanes === 1 ? 30 : lanes === 2 ? 25 : 20;
     let min = lanes === 1 ? 15 : lanes === 2 ? 13 : 11.5;
 
     if (narrow) {
-      max = lanes === 1 ? 24 : lanes === 2 ? 20 : 16;
+      max = lanes === 1 ? 29 : lanes === 2 ? 24 : 19;
       min = lanes === 1 ? 14 : lanes === 2 ? 12.5 : 10.5;
     }
     if (narrow && shallow) {
-      max = lanes === 1 ? 22 : lanes === 2 ? 18 : 15;
+      max = lanes === 1 ? 26 : lanes === 2 ? 21 : 17.5;
       min = lanes === 1 ? 13 : lanes === 2 ? 11.5 : 10;
     }
     if (narrow && veryShallow) {
-      max = lanes === 1 ? 20 : lanes === 2 ? 16.5 : 14;
+      max = lanes === 1 ? 23 : lanes === 2 ? 19 : 16;
       min = lanes === 1 ? 12.5 : lanes === 2 ? 10.8 : 9.8;
     }
     return { max, min };
@@ -1643,6 +1651,7 @@ export class VocabSprintGame {
     this.state.miss = 0;
     this.state.timeLeft = RUN_TIME;
     this.state.elapsed = 0;
+    this.state.countdownSecond = 0;
     this.state.feedback = [];
     this.state.review = new Map();
     this.state.effects = [];
@@ -1705,7 +1714,7 @@ export class VocabSprintGame {
     if (this.state.phase === "playing") {
       this.state.phase = "paused";
       this.audio.stopBgm();
-      this.showOverlay("Paused", `Score ${this.state.score}`, "Resume", {
+      this.showOverlay("Paused", "", "Resume", {
         showTitleDetails: true,
         obscureBoard: true,
         pauseMode: true
@@ -1776,7 +1785,7 @@ export class VocabSprintGame {
       setTimeout(() => {
         if (this.state.phase === "playing") {
           this.spawnLane(laneIndex, true);
-          this.renderAnswerButtons();
+          this.refreshAnswerButtons();
         }
       }, CARD_FADE_OUT_TIME * 1000);
     } else {
@@ -1799,12 +1808,12 @@ export class VocabSprintGame {
       setTimeout(() => {
         if (this.state.phase === "playing") {
           this.spawnLane(laneIndex, true);
-          this.renderAnswerButtons();
+          this.refreshAnswerButtons();
         }
       }, (CARD_FADE_OUT_TIME + 0.08) * 1000);
     }
     this.updateUi();
-    this.renderAnswerButtons();
+    this.refreshAnswerButtons();
   }
 
   missLane(laneIndex) {
@@ -1830,7 +1839,7 @@ export class VocabSprintGame {
     setTimeout(() => {
       if (this.state.phase === "playing" && this.state.lanes[laneIndex] === lane) {
         this.spawnLane(laneIndex, true);
-        this.renderAnswerButtons();
+        this.refreshAnswerButtons();
       }
     }, ANSWER_REVEAL_TIME * 1000);
     this.updateUi();
@@ -1847,6 +1856,17 @@ export class VocabSprintGame {
       this.state.timeLeft = 0;
       this.finishGame();
       return;
+    }
+
+    // 終盤3秒はカウントダウン音を鳴らす。
+    const secondsLeft = Math.ceil(this.state.timeLeft);
+    if (secondsLeft <= 3 && secondsLeft >= 1) {
+      if (secondsLeft !== this.state.countdownSecond) {
+        this.state.countdownSecond = secondsLeft;
+        this.audio.playSfx("countdown", secondsLeft);
+      }
+    } else if (this.state.countdownSecond && secondsLeft > 3) {
+      this.state.countdownSecond = 0;
     }
 
     const size = this.canvasSize();
@@ -2379,7 +2399,7 @@ export class VocabSprintGame {
   showResultOverlay(options = {}) {
     this.updateTitleDetails();
     this.syncSettingsInputs();
-    this.showOverlay("Result", `Score ${this.state.score} / Best ${this.state.best}`, "Restart", {
+    this.showOverlay("Result", "", "Restart", {
       showBack: false,
       showTitleDetails: false,
       obscureBoard: true,
@@ -2425,7 +2445,6 @@ export class VocabSprintGame {
   }
 
   updateUi() {
-    const level = this.activeLevel();
     const isBusy = this.state.phase === "loading";
     const isError = this.state.phase === "error";
     document.body.dataset.lanes = String(this.activeLaneCount());
@@ -2450,7 +2469,6 @@ export class VocabSprintGame {
             : isError
               ? "Error"
               : "Ready";
-    this.ui.levelLabel.textContent = `${level.label} / ${this.activeLaneCount()}L`;
     this.ui.laneCount.value = String(this.activeLaneCount());
     this.ui.time.textContent = String(Math.ceil(Math.max(0, this.state.timeLeft))).padStart(2, "0");
     this.ui.elapsed.textContent = this.formatPlayTime(this.state.elapsed);
@@ -2500,7 +2518,7 @@ export class VocabSprintGame {
     this.ui.level.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy;
     this.ui.levelButton.disabled = this.ui.level.disabled;
     this.ui.laneCount.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy;
-    this.ui.backButton.disabled = isBusy || this.state.phase === "ready" || isLookupOpen;
+    this.ui.backButton.disabled = isBusy || this.state.phase === "ready" || this.state.phase === "over" || isLookupOpen;
     this.ui.startButton.disabled = isBusy || isError || !this.state.words.length;
     this.updateTitleDetails();
   }

@@ -1,6 +1,8 @@
-const BGM_OUTPUT_SCALE = 0.72;
-const SFX_OUTPUT_SCALE = 1.16;
-const SFX_MAX_GAIN = 1.16;
+// BGMベースを下げる: 旧スライダー15%相当が新スライダー50%で同等になる（0.72 * 0.15 / 0.50）。
+const BGM_OUTPUT_SCALE = 0.216;
+// 効果音ベースを上げる: 旧スライダー80%相当が新スライダー50%で同等になる（1.16 * 0.80 / 0.50）。
+const SFX_OUTPUT_SCALE = 1.856;
+const SFX_MAX_GAIN = 1.856;
 
 export class AudioEngine {
   constructor(getSettings, bgmTracks = []) {
@@ -131,6 +133,46 @@ export class AudioEngine {
     gain.connect(destination);
     osc.start(start);
     osc.stop(start + duration + 0.03);
+  }
+
+  // やわらかい立ち上がりと余韻を持つ音。detune層とサブ層で厚みを出す。
+  playNote(frequency, start, duration, options = {}) {
+    if (!this.ctx || !this.sfxEnabled() || !this.master) {
+      return;
+    }
+    const {
+      type = "triangle",
+      gain = 0.08,
+      attack = 0.012,
+      detune = 0,
+      sub = 0,
+      glideTo = 0
+    } = options;
+
+    const voice = (freq, level, waveType, glide) => {
+      const osc = this.ctx.createOscillator();
+      const amp = this.ctx.createGain();
+      osc.type = waveType;
+      osc.frequency.setValueAtTime(freq, start);
+      if (glide) {
+        osc.frequency.exponentialRampToValueAtTime(Math.max(1, glide), start + duration);
+      }
+      amp.gain.setValueAtTime(0.0001, start);
+      amp.gain.exponentialRampToValueAtTime(level, start + attack);
+      amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+      osc.connect(amp);
+      amp.connect(this.master);
+      osc.start(start);
+      osc.stop(start + duration + 0.04);
+    };
+
+    voice(frequency, gain, type, glideTo);
+    if (detune) {
+      voice(frequency * (1 + detune), gain * 0.5, type, glideTo ? glideTo * (1 + detune) : 0);
+    }
+    if (sub) {
+      voice(frequency / 2, gain * sub, "sine", glideTo ? glideTo / 2 : 0);
+    }
   }
 
   playNoise(start, duration, gainValue) {
@@ -329,31 +371,45 @@ export class AudioEngine {
     }, 40);
   }
 
-  playSfx(kind) {
+  playSfx(kind, detail) {
     if (!this.sfxEnabled() || !this.init()) {
       return;
     }
     this.master.gain.value = this.sfxVolume();
     const now = this.ctx.currentTime;
     if (kind === "start") {
-      this.playTone(523.25, now, 0.08, "triangle", 0.08);
-      this.playTone(659.25, now + 0.08, 0.09, "triangle", 0.075);
-      this.playTone(783.99, now + 0.16, 0.12, "triangle", 0.07);
+      // 明るく駆け上がるアルペジオ。
+      this.playNote(523.25, now, 0.12, { type: "triangle", gain: 0.075, detune: 0.004, sub: 0.4 });
+      this.playNote(659.25, now + 0.1, 0.12, { type: "triangle", gain: 0.075, detune: 0.004 });
+      this.playNote(783.99, now + 0.2, 0.14, { type: "triangle", gain: 0.075, detune: 0.004 });
+      this.playNote(1046.5, now + 0.3, 0.24, { type: "triangle", gain: 0.08, detune: 0.005, sub: 0.35 });
     } else if (kind === "correct") {
-      this.playTone(659.25, now, 0.07, "triangle", 0.085);
-      this.playTone(880, now + 0.065, 0.1, "triangle", 0.08);
+      // きらっとした2音のチャイム。
+      this.playNote(880, now, 0.09, { type: "triangle", gain: 0.085, detune: 0.005, sub: 0.35 });
+      this.playNote(1318.51, now + 0.075, 0.2, { type: "triangle", gain: 0.08, detune: 0.006, sub: 0.3 });
+      this.playTone(2637, now + 0.075, 0.06, "sine", 0.02);
     } else if (kind === "wrong") {
-      this.playTone(220, now, 0.12, "sawtooth", 0.055);
-      this.playTone(164.81, now + 0.07, 0.16, "sawtooth", 0.045);
+      // 下降するにぶいブザー。
+      this.playNote(233.08, now, 0.16, { type: "sawtooth", gain: 0.05, detune: 0.01, glideTo: 174.61 });
+      this.playNote(155.56, now + 0.05, 0.2, { type: "triangle", gain: 0.045, sub: 0.5 });
     } else if (kind === "miss") {
-      this.playNoise(now, 0.16, 0.055);
-      this.playTone(196, now + 0.04, 0.16, "square", 0.032);
+      // 空振りのノイズと低い衝撃音。
+      this.playNoise(now, 0.18, 0.05);
+      this.playNote(146.83, now + 0.02, 0.22, { type: "square", gain: 0.03, glideTo: 92.5, sub: 0.6 });
     } else if (kind === "finish") {
-      this.playTone(783.99, now, 0.09, "triangle", 0.08);
-      this.playTone(659.25, now + 0.09, 0.1, "triangle", 0.075);
-      this.playTone(523.25, now + 0.18, 0.2, "triangle", 0.07);
+      // 小さなファンファーレ。
+      this.playNote(523.25, now, 0.12, { type: "triangle", gain: 0.08, detune: 0.004, sub: 0.35 });
+      this.playNote(659.25, now + 0.1, 0.12, { type: "triangle", gain: 0.08, detune: 0.004 });
+      this.playNote(783.99, now + 0.2, 0.14, { type: "triangle", gain: 0.08, detune: 0.004 });
+      this.playNote(1046.5, now + 0.32, 0.34, { type: "triangle", gain: 0.085, detune: 0.006, sub: 0.4 });
+      this.playTone(1567.98, now + 0.32, 0.1, "sine", 0.022);
+    } else if (kind === "countdown") {
+      // 終盤カウントダウン。残り秒が減るほど高音になり緊張感を出す。
+      const step = typeof detail === "number" ? detail : 3;
+      const freq = step <= 1 ? 1174.66 : step === 2 ? 987.77 : 830.61;
+      this.playNote(freq, now, 0.16, { type: "triangle", gain: 0.07, detune: 0.005, sub: 0.4 });
     } else if (kind === "toggle") {
-      this.playTone(740, now, 0.08, "triangle", 0.055);
+      this.playNote(740, now, 0.08, { type: "triangle", gain: 0.05 });
     }
   }
 }

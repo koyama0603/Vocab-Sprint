@@ -17,7 +17,7 @@ export const DEFAULT_GAME_SETTINGS = {
   wrongTimePenalty: 0.7,
   bgmEnabled: true,
   sfxEnabled: true,
-  bgmVolume: 0.15,
-  sfxVolume: 0.7,
+  bgmVolume: 0.5,
+  sfxVolume: 0.5,
   bgmTrack: "random"
 };

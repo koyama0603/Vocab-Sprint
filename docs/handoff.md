@@ -33,7 +33,7 @@ MyShortcuts App Gallery 配布用の単体HTML:
 - Cloudflare Workers Assets 設定: `Word-Rush\wrangler.jsonc`
 - 直近の本番デプロイ Version ID: `657eb1b6-7686-492a-a98f-1f281d0e1171`
 - 結果画面、音設定、開始画面、HUD、単語音声、単語データ更新などの最新ローカル変更は本番へデプロイ済み。
-- 最新ローカル `cache-manifest.json` version は `a67d75579798a51b`。
+- 最新ローカル `cache-manifest.json` version は `53ab351acb465490`。
 
 ## 最近の主な実装
 
@@ -153,6 +153,7 @@ git diff -- .\appgallery-single-html\index.html
 
 - `index.html`
 - `sw.js`
+- `manifest.webmanifest`
 - `cache-manifest.json`
 - `_headers`
 - `css`
@@ -177,6 +178,8 @@ npx --yes wrangler@latest deploy
 - `cache-manifest.json` の version がローカル生成後の version。
 - `js/audio-tracks.js` に現在のMP3が載っている。
 - `sw.js` に `unregister` があり、fetch handler がない。
+- `manifest.webmanifest` が 200 で配信され、`"orientation": "portrait"` になっている。
+- Chromium系でスタート画面左下に「アプリ化」ボタンが出る（PWA起動時は非表示）。
 
 ## 現在の作業ツリー
 
@@ -203,6 +206,7 @@ npx --yes wrangler@latest deploy
 - 直近のUI調整: 結果画面の辞書リンク表示をスマホ向けに `英辞`、`YouG`、`Wikt` へ短縮。lookup iframe モーダルをタイトルパネルより前面にし、スマホ時は上部ボタンが隠れない位置へ調整。lookup表示中は音設定、テーマ切替、戻るボタンを無効化。
 - 直近のUI調整: lookup iframe 右上の別タブボタンを `Open in new tab`、閉じるボタンを `Close` 表記に変更。
 - 直近のデプロイ: lookup iframe UI調整を `dist` へ反映し、Wranglerで差分デプロイ済み。アップロード対象は `/cache-manifest.json`、`/js/game.js`、`/index.html`、`/css/styles.css` の4件。
+- 直近のUI調整: 回答後に次カードへ切り替わる際、回答ボタンのフォーカスを解除。タッチ端末では回答ボタンの sticky hover 表示が次問へ残らないよう調整。
 
 ## 次チャットで最初に確認すること
 

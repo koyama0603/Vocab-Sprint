@@ -1,0 +1,27 @@
+{
+  "id": "/",
+  "name": "Word Rush",
+  "short_name": "Word Rush",
+  "description": "落ちてくる英単語の正しい日本語訳を選ぶ英単語学習ゲーム。",
+  "lang": "ja",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080b0c",
+  "theme_color": "#080b0c",
+  "icons": [
+    {
+      "src": "assets/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icons/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
