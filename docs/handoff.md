@@ -31,9 +31,9 @@ MyShortcuts App Gallery 配布用の単体HTML:
 
 - 本番URL: `https://wordrush.myshortcuts.workers.dev/`
 - Cloudflare Workers Assets 設定: `Word-Rush\wrangler.jsonc`
-- 直近の本番デプロイ Version ID: `657eb1b6-7686-492a-a98f-1f281d0e1171`
-- 結果画面、音設定、開始画面、HUD、単語音声、単語データ更新などの最新ローカル変更は本番へデプロイ済み。
-- 最新ローカル `cache-manifest.json` version は `53ab351acb465490`。
+- 直近の本番デプロイ Version ID: `011feac3-70d1-42d6-8636-982ee4d71d54`
+- PWA化（インストールボタン、`manifest.webmanifest`、縦向き固定/ガード、横向き時自動一時停止）、ピンチズーム・文字選択抑止、ビジュアル刷新（タイトルフォント、レーン背景アニメ、カード/パーティクル演出）、効果音刷新とカウントダウン音、BGM/SFXベース音量調整、HUDリッチデザイン、Result/Paused画面の表示整理、狭幅時の回答ボタン崩れ修正などを含む最新ローカル変更は本番へデプロイ済み、GitHubにもpush済み（`main` ブランチ）。
+- 最新ローカル `cache-manifest.json` version は `f89f45dd5ee20fcf`。
 
 ## 最近の主な実装
 
@@ -183,30 +183,20 @@ npx --yes wrangler@latest deploy
 
 ## 現在の作業ツリー
 
-2026-07-04時点で未コミット変更あり。
+2026-07-04時点で未コミット変更なし。ソース・`dist`・本番・GitHub（`main`）はすべて一致している。
 
-主な未コミット内容:
+直近の変更内容（コミット済み・デプロイ済み・push済み）:
 
-- Cloudflare deploy 関連: `wrangler.jsonc`、`_headers`、`dist` 除外の `.gitignore`。
-- Service Worker退役対応: `sw.js`、`js/main.js`。
-- 音源入れ替え: 旧MP3削除、新 `Music-1.mp3` から `Music-8.mp3` 追加、`js/audio-tracks.js` 更新。
-- 結果画面、学習記録、tooltip、HUD、レスポンシブ調整。
-- 直近のUI調整: 結果画面フォント拡大、音設定の `×` ボタン、開始画面のレベル/レーン表示拡大、360px幅で上部 `Word Rush` が省略されないように調整。
-- `levels.config.js` の `accel` 調整。
-- `cache-manifest.json` 更新。
-- `assets\word-audio\en-us-edge-tts` に7000語分の単語MP3を追加。
-- `scripts\generate-cache-manifest.mjs` は `assets\word-audio` を個別assetではなく `assetGroups` として要約する。
-- 直近のUI調整: ボタンデザイン、ロード中の中央エフェクト、結果リストでWrong/Missを上に表示、レーン背景の微ぼかし、残り3秒以下の中央カウントダウン、BGMフェードアウト延長、タイトルパネルのデザイン調整、BGM試聴。
-- 直近のUI調整: 音設定パネルがレーン裏に隠れないよう重なり順を修正。開始画面はタイトル、レベル/レーン選択、統計カード/グラフ、Start、キャッシュ注意文の順に整理。結果画面は右上閉じるボタン、出題一覧だけスクロール、Restart下固定に変更。HUD数値に控えめな発光を追加。
-- 直近のUI調整: プレイ中は音設定ボタンを無効化し、一時停止中は有効。開始画面では戻るボタンを無効化。開始画面の余白、Accuracy表記、レーン選択のダーク表示、結果画面Closeボタン周辺の余白、HUDラベルの発光を調整。
-- 直近のUI調整: 回答後、正解の緑色選択肢だけ文字色を黒のまま維持し、不正解選択肢は従来どおり灰色寄りに表示。
-- 直近のデータ更新: `Word-Rush\data_rc` の修正版CSV 35件を `Word-Rush\data` に反映。全CSVは各200行、列は `id,english,japanese,detail,sample,sample-jpn`。重複IDなし、CSV上の全IDに対応する単語MP3あり。
-- 直近のデプロイ準備: `Word-Rush\dist` を現在の静的ファイルから作り直し済み。`dist\data` はCSV 35件のみで、`README.md` と `manifest.json` は含めていない。
-- 直近のデプロイ: `Word-Rush\dist\data\a1-part1.csv` のみ差し替え後、Wranglerで差分デプロイ済み。本番CSVはローカル `dist` とSHA-256一致。
-- 直近のUI調整: 結果画面の辞書リンク表示をスマホ向けに `英辞`、`YouG`、`Wikt` へ短縮。lookup iframe モーダルをタイトルパネルより前面にし、スマホ時は上部ボタンが隠れない位置へ調整。lookup表示中は音設定、テーマ切替、戻るボタンを無効化。
-- 直近のUI調整: lookup iframe 右上の別タブボタンを `Open in new tab`、閉じるボタンを `Close` 表記に変更。
-- 直近のデプロイ: lookup iframe UI調整を `dist` へ反映し、Wranglerで差分デプロイ済み。アップロード対象は `/cache-manifest.json`、`/js/game.js`、`/index.html`、`/css/styles.css` の4件。
-- 直近のUI調整: 回答後に次カードへ切り替わる際、回答ボタンのフォーカスを解除。タッチ端末では回答ボタンの sticky hover 表示が次問へ残らないよう調整。
+- PWA化: `manifest.webmanifest` 新規追加、スタート画面左下にインストールボタン（Chromium系のみ、PWA起動中は非表示）、`orientation: portrait` 指定、横向き時の縦向きガード表示、横向きになったらプレイ中を自動一時停止。
+- モバイル操作性: ピンチイン/ピンチアウト抑止（viewport + touch-action + gesture系イベント）、画面全体の文字選択・長押しコールアウト抑止（テキスト入力欄は除く）。
+- ビジュアル刷新: タイトルロゴのフォント/グラデーション装飾、落下レーン背景のうねるアニメーション（ダーク/ライト双方の配色に対応）、単語カードのデザイン刷新とフェードイン/フェードアウト、正解/誤答/ミス時のパーティクル・衝撃波エフェクト。
+- 効果音刷新: `playNote` ベースの厚みのある音に全面差し替え、残り3・2・1秒のカウントダウン音を追加。
+- 音量調整: BGMベース音量を下げ（旧15%相当を新50%に）、効果音ベース音量を上げ（旧80%相当を新50%に）、既定値も50%/50%に変更。
+- HUD/スコアパネル: シックなカードデザインに刷新、Played表示位置を固定（残り秒数の桁変動で動かない）、Unlearned下に区切り線+「History」キャプション追加、Time Left横のレベル/レーン表記を削除。
+- 結果画面(Result): Close左のScore/Best表示を削除、Closeボタンをゴールドで目立たせ、出題リストの単語横の `x回数` 表示を削除。
+- 中断画面(Paused): 右上のScore表示を削除。
+- 操作性の細部: 戻るボタンを「Retry」表記に変更（動作はタイトルに戻るまま）、結果画面表示中はRetryを無効化、無効ボタンにマウスを重ねても禁止カーソルにならないよう `cursor: default` に統一、選択肢のキーガイド(a s d...)のフォントサイズを拡大、日本語訳の選択肢はデフォルトで大きく表示しつつ長い訳語は自動縮小、出題リストのツールチップは「詳細解説」の後に改行して例文・日本語訳を表示（`例:` プレフィックス廃止）。
+- 不具合修正: 幅520px以下・1レーンで回答ボタンの訳語がキー列に押し込まれクリップする不具合を修正（グリッド定義の詳細度衝突が原因）。幅が狭くHUDが下段に来るときにスコア系パネルの高さが揃うよう修正（HUDが右側にある広幅時は従来どおり）。
 
 ## 次チャットで最初に確認すること
 
