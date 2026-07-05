@@ -27,8 +27,8 @@ const CARD_FADE_OUT_TIME = 0.24;
 const ANSWER_REVEAL_TIME = 1.12;
 const REVIEW_TOOLTIP_LONG_PRESS_MS = 520;
 const REVIEW_TOOLTIP_TOUCH_MOVE_CANCEL = 10;
-const WORD_AUDIO_START_DELAY_MS = 420;
-const WORD_AUDIO_START_GAP_MS = 160;
+const WORD_AUDIO_START_DELAY_MS = 260;
+const WORD_AUDIO_START_GAP_MS = 480;
 const WORD_AUDIO_START_MAX_ITEM_MS = 2600;
 const WORD_AUDIO_SPAWN_DELAY_MS = 90;
 const WORD_AUDIO_PREFETCH_COUNT = 6;
@@ -1646,6 +1646,7 @@ export class VocabSprintGame {
     }
     this.audio.playWordAudioQueue(items, {
       delayMs: initialDelayMs,
+      intervalMs: WORD_AUDIO_START_GAP_MS,
       gapMs: WORD_AUDIO_START_GAP_MS,
       maxItemMs: WORD_AUDIO_START_MAX_ITEM_MS
     });

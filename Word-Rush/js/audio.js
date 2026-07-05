@@ -228,7 +228,7 @@ export class AudioEngine {
     if (!this.wordAudioEnabled() || !url || !globalThis.Audio) {
       return;
     }
-    if (!options.fromQueue) {
+    if (!options.fromQueue && options.cancelQueued) {
       this.wordAudioQueueToken += 1;
     }
     const shouldPlay = typeof options.shouldPlay === "function" ? options.shouldPlay : null;
@@ -239,7 +239,11 @@ export class AudioEngine {
     if (delayMs) {
       const timer = setTimeout(() => {
         this.wordAudioTimers.delete(timer);
-        this.playWordAudio(url, { shouldPlay, fromQueue: options.fromQueue });
+        this.playWordAudio(url, {
+          shouldPlay,
+          fromQueue: options.fromQueue,
+          cancelQueued: options.cancelQueued
+        });
       }, delayMs);
       this.wordAudioTimers.add(timer);
       return;
@@ -276,8 +280,30 @@ export class AudioEngine {
     const token = this.wordAudioQueueToken + 1;
     this.wordAudioQueueToken = token;
     const delayMs = Math.max(0, Number(options.delayMs) || 0);
+    const intervalMs = Math.max(0, Number(options.intervalMs) || 0);
     const gapMs = Math.max(0, Number(options.gapMs) || 0);
     const maxItemMs = Math.max(700, Number(options.maxItemMs) || 1800);
+
+    if (intervalMs) {
+      queue.forEach((item, index) => {
+        const timer = setTimeout(() => {
+          this.wordAudioTimers.delete(timer);
+          if (this.wordAudioQueueToken !== token) {
+            return;
+          }
+          const shouldPlay = typeof item.shouldPlay === "function" ? item.shouldPlay : null;
+          if (shouldPlay && !shouldPlay()) {
+            return;
+          }
+          this.playWordAudio(item.url, {
+            shouldPlay,
+            fromQueue: true
+          });
+        }, delayMs + intervalMs * index);
+        this.wordAudioTimers.add(timer);
+      });
+      return;
+    }
 
     const playNext = async () => {
       if (delayMs) {
