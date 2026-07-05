@@ -1,6 +1,6 @@
 {
-  "version": "2598838a329cb0c6",
-  "generatedAt": "2026-07-05T08:58:35.493Z",
+  "version": "1958f6d581631928",
+  "generatedAt": "2026-07-05T14:20:15.788Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -40,147 +40,147 @@
     },
     {
       "url": "css/styles.css",
-      "revision": "165b9b1e0248489bdf453368917c34b6a3d337bd0dae1b785a98643bb6d64d0a"
+      "revision": "2db0ad5d77f8bb1ed03b031f7790448f3d8285f4d4fa278d7f17faef52ff081f"
     },
     {
       "url": "data/a1-part1.csv",
-      "revision": "9378b9cf46ac0766f824076d12e3f3a280f0ac3269536a27f7d8214b2cf15f30"
+      "revision": "913fc4c1f83419fb59401cb86404b3de1708b34dfa1d4f6253c195dae31ace39"
     },
     {
       "url": "data/a1-part2.csv",
-      "revision": "5402c4a24fbc6c3ef409c72b157b4f23dc099547dd140354ee78e8d345368f45"
+      "revision": "c0ac3197cd043e955a2cfd627b474278ce7376ba01db12e1f74eda7e105adc6c"
     },
     {
       "url": "data/a1-part3.csv",
-      "revision": "6704d24a2f03a6219a1af7547ab97cb116d003267b374c8ebc0030cb9379a2dd"
+      "revision": "0a2474dc5044aac6da32b59d4b806e9409865763514829fd10cffa35268fff00"
     },
     {
       "url": "data/a1-part4.csv",
-      "revision": "24c0e95026f6efaba7b5ae23fe9390b11a7e8e8dd5ef905238b38cee5f00ac36"
+      "revision": "8d596032deb1160874bcc2ecb8c2d70503adc9d5436fb3c1b35ea036f49c3ac6"
     },
     {
       "url": "data/a1-part5.csv",
-      "revision": "409ae698ebc307a1333e654ca9ed2906893e0d0f9052edd6a4baf84b95f644de"
+      "revision": "bbd2cad2571f29c462ae1863774708d6aaaa71c04a57ea9f66dd9b9f16fedf12"
     },
     {
       "url": "data/a1-part6.csv",
-      "revision": "8229d77981d970aabcf6f5894533de9ad193ae8f62875a3e06fc9bf6027b42ac"
+      "revision": "1b135882f4163a625168b99a0456ac4cef1660b2301edc4052e739693ea76bac"
     },
     {
       "url": "data/a1-part7.csv",
-      "revision": "0690e49888a6589380e64b6c9575263886a5a3c4a5bb6006b79a1e97885f2694"
+      "revision": "4f2b5df73ccff21f74289a042cf4159e749c0f4516d3ca62f7585b32544f9824"
     },
     {
       "url": "data/a1-part8.csv",
-      "revision": "0d9b7d7d47cdcebc1c75a0e26b8e8ad1e556d34c2a4c05fc39260cc9b72a15aa"
+      "revision": "718181ea06d0cf65bf21baf4a228a0b0aa79e228d154a22f031374be868566e7"
     },
     {
       "url": "data/a2-part1.csv",
-      "revision": "fc170fefb70be01387f23fae920b5b9fa874e616667b21f6346635bc97660b8b"
+      "revision": "427def9dc871ebf5be6c1e93ac2c3e5dceffdf2497feb76a7ec6933ee5f5218e"
     },
     {
       "url": "data/a2-part2.csv",
-      "revision": "ec906fda199821095c9dc4ded2a61a3f1aa8b3b4b239e9a3fb777364e09759cb"
+      "revision": "e59b90f5d240fb7d15df11af1b0c84b3afb5020eb824c597a7b0f1a7673255d4"
     },
     {
       "url": "data/a2-part3.csv",
-      "revision": "ef09e6307970bb63160e8df53720c0ebaba6739587b219013119573838d53161"
+      "revision": "9cd4edfee78e6d7f95cebe671f98d2646d3d8c598745f039f1dfda7359a4037a"
     },
     {
       "url": "data/a2-part4.csv",
-      "revision": "a44a5ac0378162bf0744d203e36fad85130bd268a04dd24970f2558249a82ba9"
+      "revision": "93520cd1c9e12571df369cfade37330a8a0196fe10ca833157a7bf7e77c1f4fd"
     },
     {
       "url": "data/a2-part5.csv",
-      "revision": "f91b55c0c8de5e323b25f02de647619eb01d476b795f81a19a0e576ce243a99a"
+      "revision": "a16401abfdd87c0cbac661c99153d6c4b2eedb6acc455773e16aff0b34e2cc0b"
     },
     {
       "url": "data/a2-part6.csv",
-      "revision": "d9c62a996adf75ee3cd825243d6aa66c59d0f60e00f2d94145f3b5c4e89c51bc"
+      "revision": "55328f0f5ea5bb5eddb4e422bb0fe6b17b887d0341f2fa7fcd5e8c29ef0ca3c8"
     },
     {
       "url": "data/a2-part7.csv",
-      "revision": "ea2d30a0bf8062277e130464bb62f15b5a37b52c10ef7e42b8542287d82e15a6"
+      "revision": "a0e29e6d26583cf436384291f66e642b4b429d62cb9d9fa75dbb8732af975c82"
     },
     {
       "url": "data/b1-part1.csv",
-      "revision": "d9f84075b4cb3512bf0e18367b65df8482e93119980cecb072d42f1d49355235"
+      "revision": "0812681e768d442f485fb076f593a3770b6655b40999922eea90f73cdf44425f"
     },
     {
       "url": "data/b1-part2.csv",
-      "revision": "51f6f3af3757f8512a3eea35066f1913b3ab8ceb57c65102b43cc00db1ac323b"
+      "revision": "dee836fec83e4d37d8cb1830cb598a0f2e7f80429f7fe203544d90689ac4955a"
     },
     {
       "url": "data/b1-part3.csv",
-      "revision": "f4dd5c50b4c44bf89937999ba45f3699d4b373d84ec446d8428b90786e37745b"
+      "revision": "bac4c4c8dc96414c5ac59c8d8578544c56400ab1e4712e3140bc03245505fd56"
     },
     {
       "url": "data/b1-part4.csv",
-      "revision": "5cd6b1c7e11f44dcd8dbcdfa88ccd277a0c65ce36d03fe199345c19e318b972d"
+      "revision": "39f26f911b96dab918285dcaeef68ade7f53d861e14da0acddfe6ee51077c752"
     },
     {
       "url": "data/b1-part5.csv",
-      "revision": "e538685086bae494bebdb8c55230bdefe81c02d9738fc40eae9601e24276b414"
+      "revision": "d32805038183277723790748b111e00a6ac18a6461241efdf13a9272d82e88dc"
     },
     {
       "url": "data/b1-part6.csv",
-      "revision": "d5da69ef64129de6df557c747d5b9caf7e2795d7f419da625c0a00653f54d50f"
+      "revision": "4bffccf331f1146507078a31daf53323606245f9b14aeae947dd415b3193b56a"
     },
     {
       "url": "data/b1-part7.csv",
-      "revision": "b0648a95c0bc0379d9483f429bbcec2df79fca0a6b648eb85643435052a4e42e"
+      "revision": "ee03d639103da06633cb43510e4e6d305ba7836d8f89ebea7b7a4640e050f249"
     },
     {
       "url": "data/b1-part8.csv",
-      "revision": "ad3853628b2d93a6f250001312b96f4c8d01acd1a3bc352469aae46b24b2a1bb"
+      "revision": "421023628992532844a9694aa4db29212532b4926ce52f77b363284ff7be0fb0"
     },
     {
       "url": "data/b2-part1.csv",
-      "revision": "0fa1de0263ea057a83e3bf6a0235c8ce3cfe47c273f039b727a065f7f41be1fe"
+      "revision": "452262362e102540eb08d4b8bb9ad57c40216a69b185ec7a9308655e2a7ca8c3"
     },
     {
       "url": "data/b2-part2.csv",
-      "revision": "7ea9c7be0412ad9a4fafa225fa4cfd7ead1a7a4b0b849d4f7bf59aa8a35b1a9e"
+      "revision": "2bf50aa82655346875b0377cafff102c121efc1b6b10c40473ce4d572ffee749"
     },
     {
       "url": "data/b2-part3.csv",
-      "revision": "97a85a72f6d8c15f686e26e9107852e0f11ff803d600cc3a27261311a2c761bc"
+      "revision": "225fac97cc95717f8a751ea55ed5682b489ae21cc69fa455d9f40a1c04fb0dbf"
     },
     {
       "url": "data/b2-part4.csv",
-      "revision": "f9e360da391116b663d3c7b29ac3a04985d269ce62829d1f4564063b6a1fbbb1"
+      "revision": "9e943907da18c2c56d81fd119239aa17ecfb3e84b6f03dbae472ac50e194e694"
     },
     {
       "url": "data/b2-part5.csv",
-      "revision": "454b2aabf939481e9ea3981e62991a460f86c4c7e49299456c554712722be170"
+      "revision": "636d59cbebae6f620505afc9f0196d60bd3393b0a1c93edf5721b5f125ccf58a"
     },
     {
       "url": "data/b2-part6.csv",
-      "revision": "1b82ece1fa330bf4cb3e77c7f7030f062bb24aab2e13f0f264a75421c9fc96be"
+      "revision": "e88a5be354774b703f5b9dc171874964062ee27c03cd5c398fd5c279e3dbafeb"
     },
     {
       "url": "data/b2-part7.csv",
-      "revision": "ea01ab6b9ef20c193c41ff33cd601055d4a51b1117a1e989b1de71efbc5be399"
+      "revision": "34366732772bbd4d947a43f445534da0c2ccf51baa78abd378b2756230e626e8"
     },
     {
       "url": "data/c1-part1.csv",
-      "revision": "b30a0877fdbf286d3d403d6c7f611af08a0da1618fbe05a8d0754a70f2dbba37"
+      "revision": "8f19fd673642813e78af17beae5cc2a7f017c6935ef29bf3dee3b093928cedcc"
     },
     {
       "url": "data/c1-part2.csv",
-      "revision": "41826c85cb66d8f9e0658cf50311270eccc97a901af5ef3eb998c70433018828"
+      "revision": "9b6aa0e4016e617f180d228de8cccad86159fee91172ba34e84e675c5c8aeac4"
     },
     {
       "url": "data/c1-part3.csv",
-      "revision": "1bd8bc5f3a4f7a27d27d5a949c7b9a8c8cbcf449192a24a15d6dbfb8ff77038c"
+      "revision": "94ad0fdab495a80de618e25f1538308dd501c3a43edbf5d631e184b7c3cbb03f"
     },
     {
       "url": "data/c1-part4.csv",
-      "revision": "cee14a22f0d04d88401f61721e82859835ce833bd8999e0f77b56f6879b2d34d"
+      "revision": "d0b19818eafa8df64c7b9737e0b405d9ad45bb6f367f650a6c7aa2065a6f0741"
     },
     {
       "url": "data/c2-part1.csv",
-      "revision": "8aa720b614216e58e60ad05c4053edec50a333e83a5c57081b9ae307b0f662cc"
+      "revision": "79b793c9ce354d963869b9784e9c92783dde2f5328396a7777fedfd18742cbbd"
     },
     {
       "url": "data/manifest.json",
@@ -188,7 +188,7 @@
     },
     {
       "url": "index.html",
-      "revision": "e3af0f4589d64bce222fe6f80f868f1d39803324b5a27261cddd12e1d72dd326"
+      "revision": "28cc1fbdd004d408f13f1dd1652f5458c660dbb682bdbd5f29e1550ff4f24e17"
     },
     {
       "url": "js/audio-tracks.js",
@@ -196,15 +196,15 @@
     },
     {
       "url": "js/audio.js",
-      "revision": "fa2bd2154372c330ee1143bff9e8f05be1a4f3a614d70004e5eb5c396bd30d3a"
+      "revision": "85607dd3e84a13a91650071ed82ff777f7a2a8e4145bc7fc98db10c416182ced"
     },
     {
       "url": "js/config.js",
-      "revision": "a65e0fc7f6a677ba9152e00a01d65b5e5f2a3258df866219c1ad0e68740cbd1c"
+      "revision": "433aa74b3c4818e27bfe9deb349abac51319cb7c3e3ed343b0fdc67947ed7ae0"
     },
     {
       "url": "js/game.js",
-      "revision": "0e1e59caaa0791b382939e59c703d48f905d7342f348154c1669efafd9719339"
+      "revision": "e271be75279b2bbff7aae35d4fbc7c584721dc18d7158df27624f41b43c4abb8"
     },
     {
       "url": "js/levels.config.js",
@@ -216,7 +216,7 @@
     },
     {
       "url": "js/main.js",
-      "revision": "a4752ec6b4fe129631ef52bf3d15ab05594836ccc9ed4aecb115a03da6273a19"
+      "revision": "02592012f57836132fbd946c55b43ff644ae8271b3c665c1f69e152b79160a60"
     },
     {
       "url": "js/words.js",

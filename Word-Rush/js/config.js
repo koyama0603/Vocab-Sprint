@@ -5,6 +5,7 @@ export const PREFERENCES_STORAGE_KEY = "word-rush-preferences";
 export const PLAY_COUNTS_STORAGE_KEY = "word-rush-play-counts";
 export const THEME_STORAGE_KEY = "word-rush-theme";
 export const WORD_STATS_STORAGE_KEY = "word-rush-word-stats-v1";
+export const HELP_SEEN_STORAGE_KEY = "word-rush-help-seen-v1";
 
 export const DEFAULT_PREFERENCES = {
   levelId: "a1-part1",
@@ -20,7 +21,9 @@ export const DEFAULT_GAME_SETTINGS = {
   wrongTimePenalty: 0.7,
   bgmEnabled: true,
   sfxEnabled: true,
+  wordAudioEnabled: true,
   bgmVolume: 0.5,
   sfxVolume: 0.5,
+  wordAudioVolume: 0.5,
   bgmTrack: "random"
 };

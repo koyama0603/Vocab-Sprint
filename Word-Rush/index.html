@@ -57,6 +57,15 @@
               <button class="sound-panel-close" id="soundPanelClose" type="button" aria-label="音設定を閉じる">×</button>
             </div>
             <label class="switch-row">
+              <span>単語の発音</span>
+              <input id="wordAudioEnabledInput" type="checkbox">
+            </label>
+            <label class="range-row">
+              <span>発音音量</span>
+              <input id="wordAudioVolumeInput" type="range" min="0" max="1" step="0.01">
+              <strong id="wordAudioVolumeValue">50%</strong>
+            </label>
+            <label class="switch-row">
               <span>BGM</span>
               <input id="bgmEnabledInput" type="checkbox">
             </label>
@@ -140,6 +149,7 @@
               </svg>
               <span>アプリ化</span>
             </button>
+            <button class="title-help-button hidden" id="titleHelpButton" type="button" title="ゲームの説明" aria-label="ゲームの説明">?</button>
             <div class="overlay-head">
               <h2 id="overlayTitle">Word Rush</h2>
               <p id="overlayCopy">Loading</p>
@@ -239,11 +249,11 @@
                         <strong id="titleLearnedValue">0 / 0</strong>
                       </div>
                       <div class="title-stat-card">
-                        <span>未正解</span>
+                        <span>未正解数</span>
                         <strong id="titleUncorrectedValue">0 / 0</strong>
                       </div>
                       <div class="title-stat-card wide-stat-card">
-                        <span>累積正答数 / 累積出題数</span>
+                        <span>累積正解数 / 累積出題数</span>
                         <strong id="titleCumulativeValue">0 / 0</strong>
                       </div>
                     </div>
@@ -317,6 +327,42 @@
         <div class="reset-confirm-actions">
           <button class="secondary-button reset-cancel-button" id="resetCancelButton" type="button">Cancel</button>
           <button class="reset-confirm-button" id="resetConfirmButton" type="button">Reset</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="help-modal hidden" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="help-backdrop" id="helpBackdrop"></div>
+      <section class="help-window">
+        <header class="help-header">
+          <h2 id="helpTitle">ゲームの説明</h2>
+          <button class="help-close" id="helpCloseButton" type="button" aria-label="Close">Close</button>
+        </header>
+        <div class="help-content">
+          <div class="help-brand" aria-hidden="true">
+            <img src="assets/icons/favicon.svg" alt="">
+            <strong>Word Rush</strong>
+          </div>
+          <section>
+            <h3>単語レベル</h3>
+            <p>CEFRの A1～C2 相当の実用英単語を200語ずつ、35パートに分けて、合計7,000語を学習できます。</p>
+          </section>
+          <section>
+            <h3>レーン数</h3>
+            <p>1度に画面に表示する単語の数を、1レーンから3レーンまで選べます。</p>
+          </section>
+          <section>
+            <h3>出題方向</h3>
+            <p>単語カードを英語にする英→日、または日本語にする日→英を選べます。</p>
+          </section>
+          <section>
+            <h3>ゲームモード</h3>
+            <p>「ラッシュ」は単語カードが落ちてくるモード、「集中」はカードが途中で消えるので瞬発力と記憶力を使うモード、「じっくり」は回答するまで単語カードは消えません。</p>
+          </section>
+          <section>
+            <h3>サバイバルモード</h3>
+            <p>1問でも誤答またはミスをすると、その場でゲーム終了になる緊張感のあるモードです。</p>
+          </section>
         </div>
       </section>
     </div>

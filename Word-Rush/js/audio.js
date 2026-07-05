@@ -3,6 +3,8 @@ const BGM_OUTPUT_SCALE = 0.216;
 // 効果音ベースを上げる: 旧スライダー80%相当が新スライダー50%で同等になる（1.16 * 0.80 / 0.50）。
 const SFX_OUTPUT_SCALE = 1.856;
 const SFX_MAX_GAIN = 1.856;
+// 既存の発音音量（効果音50%時）を、単語発音50%の基準にする。
+const WORD_AUDIO_OUTPUT_SCALE = 1.08;
 const WORD_AUDIO_ROOT = "assets/word-audio/en-us-edge-tts";
 const WORD_AUDIO_POOL_LIMIT = 24;
 const WORD_AUDIO_PREFETCH_LIMIT = 8;
@@ -56,6 +58,10 @@ export class AudioEngine {
     return this.settings().sfxEnabled !== false;
   }
 
+  wordAudioEnabled() {
+    return this.settings().wordAudioEnabled !== false;
+  }
+
   bgmVolume() {
     return Math.max(0, Math.min(1, this.clampVolume(this.settings().bgmVolume, 0.15) * BGM_OUTPUT_SCALE));
   }
@@ -65,7 +71,7 @@ export class AudioEngine {
   }
 
   wordAudioVolume() {
-    return Math.max(0, Math.min(1, this.clampVolume(this.settings().sfxVolume, 0.7) * 1.08));
+    return Math.max(0, Math.min(1, this.clampVolume(this.settings().wordAudioVolume, 0.5) * WORD_AUDIO_OUTPUT_SCALE));
   }
 
   setTracks(tracks) {
@@ -183,7 +189,7 @@ export class AudioEngine {
   }
 
   preloadWordAudio(urls, options = {}) {
-    if (!this.sfxEnabled() || !globalThis.Audio) {
+    if (!this.wordAudioEnabled() || !globalThis.Audio) {
       return;
     }
     const preload = options.preload || "metadata";
@@ -219,7 +225,7 @@ export class AudioEngine {
   }
 
   playWordAudio(url, options = {}) {
-    if (!this.sfxEnabled() || !url || !globalThis.Audio) {
+    if (!this.wordAudioEnabled() || !url || !globalThis.Audio) {
       return;
     }
     if (!options.fromQueue) {
@@ -258,7 +264,7 @@ export class AudioEngine {
   }
 
   playWordAudioQueue(items, options = {}) {
-    if (!this.sfxEnabled() || !globalThis.Audio) {
+    if (!this.wordAudioEnabled() || !globalThis.Audio) {
       return;
     }
     const queue = (Array.isArray(items) ? items : [items])
@@ -646,7 +652,7 @@ export class AudioEngine {
     if (this.master) {
       this.master.gain.value = this.sfxVolume();
     }
-    if (!this.sfxEnabled()) {
+    if (!this.wordAudioEnabled()) {
       this.stopWordAudio();
     } else {
       const volume = this.wordAudioVolume();

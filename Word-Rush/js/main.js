@@ -5,9 +5,15 @@ game.init();
 
 // スマホでのピンチズームを抑止する。
 (() => {
+  const preventDefaultIfCancelable = (event) => {
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+  };
+
   // iOS Safari のジェスチャによる拡大を無効化。
   for (const type of ["gesturestart", "gesturechange", "gestureend"]) {
-    document.addEventListener(type, (event) => event.preventDefault(), { passive: false });
+    document.addEventListener(type, preventDefaultIfCancelable, { passive: false });
   }
 
   // 2本指以上のタッチ移動（ピンチ）を無効化。
@@ -15,7 +21,7 @@ game.init();
     "touchmove",
     (event) => {
       if (event.touches.length > 1) {
-        event.preventDefault();
+        preventDefaultIfCancelable(event);
       }
     },
     { passive: false }
@@ -28,7 +34,7 @@ game.init();
     (event) => {
       const now = Date.now();
       if (now - lastTouchEnd <= 300) {
-        event.preventDefault();
+        preventDefaultIfCancelable(event);
       }
       lastTouchEnd = now;
     },
