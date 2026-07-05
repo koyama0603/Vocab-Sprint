@@ -32,6 +32,7 @@ const WORD_AUDIO_START_GAP_MS = 480;
 const WORD_AUDIO_START_MAX_ITEM_MS = 2600;
 const WORD_AUDIO_SPAWN_DELAY_MS = 90;
 const WORD_AUDIO_PREFETCH_COUNT = 6;
+const WORD_STATS_SAVE_DEBOUNCE_MS = 1800;
 const DEFAULT_GAME_MODE_ID = "rush";
 const FADE_MODE_VISIBLE_RATIO = 0.3;
 const GAME_MODES = [
@@ -294,6 +295,8 @@ export class VocabSprintGame {
     this.reviewTooltipPointer = null;
     this.reviewTooltip = this.createReviewTooltip();
     this.numberFormatter = new Intl.NumberFormat("en-US");
+    this.wordStatsSaveTimer = 0;
+    this.wordStatsDirty = false;
     this.audio = new AudioEngine(() => this.state.settings, BGM_TRACKS);
   }
 
@@ -507,11 +510,36 @@ export class VocabSprintGame {
   }
 
   saveWordStats() {
+    if (this.wordStatsSaveTimer) {
+      clearTimeout(this.wordStatsSaveTimer);
+      this.wordStatsSaveTimer = 0;
+    }
+    this.wordStatsDirty = false;
     try {
       localStorage.setItem(WORD_STATS_STORAGE_KEY, JSON.stringify(this.state.wordStats));
     } catch {
       // Ignore storage failures in private or locked-down contexts.
     }
+  }
+
+  scheduleWordStatsSave() {
+    this.wordStatsDirty = true;
+    if (this.wordStatsSaveTimer) {
+      return;
+    }
+    this.wordStatsSaveTimer = setTimeout(() => {
+      this.wordStatsSaveTimer = 0;
+      if (this.wordStatsDirty) {
+        this.saveWordStats();
+      }
+    }, WORD_STATS_SAVE_DEBOUNCE_MS);
+  }
+
+  flushWordStats() {
+    if (!this.wordStatsDirty && !this.wordStatsSaveTimer) {
+      return;
+    }
+    this.saveWordStats();
   }
 
   wordStatKey(word) {
@@ -597,7 +625,7 @@ export class VocabSprintGame {
     };
     this.state.wordStats[key] = next;
     this.invalidateStatsCache();
-    this.saveWordStats();
+    this.scheduleWordStatsSave();
   }
 
   createSeed() {
@@ -1186,6 +1214,7 @@ export class VocabSprintGame {
     }
     const stayOnResult = Boolean(options.resultMode);
 
+    this.flushWordStats();
     const token = ++this.loadToken;
     this.audio.stopBgm();
     this.audio.stopWordAudio();
@@ -2549,6 +2578,7 @@ export class VocabSprintGame {
     this.state.phase = "over";
     this.audio.fadeOutBgm(1800);
     this.audio.stopWordAudio();
+    this.flushWordStats();
     this.saveBest();
     this.showResultOverlay({ fadeIn: true });
     this.addFeed(`Finish: ${this.formatNumber(this.state.score)}`);
@@ -2560,6 +2590,7 @@ export class VocabSprintGame {
   returnToTitle() {
     this.audio.fadeOutBgm(650);
     this.audio.stopWordAudio();
+    this.flushWordStats();
     this.state.phase = this.state.words.length ? "ready" : "loading";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
     this.state.gameModeId = this.selectedGameModeId();
@@ -2594,6 +2625,7 @@ export class VocabSprintGame {
       this.stopRenderLoop();
       this.audio.fadeOutBgm(650);
       this.audio.stopWordAudio();
+      this.flushWordStats();
       this.showOverlay("Paused", "", "Resume", {
         showTitleDetails: true,
         obscureBoard: true,
@@ -3545,6 +3577,7 @@ export class VocabSprintGame {
   }
 
   pauseForHiddenPage() {
+    this.flushWordStats();
     if (this.state.phase === "playing") {
       this.pauseGame();
     }

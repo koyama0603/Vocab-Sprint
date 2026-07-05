@@ -31,6 +31,7 @@ export class AudioEngine {
     this.wordAudioCurrent = null;
     this.wordAudioActive = new Set();
     this.wordAudioCleanup = new Map();
+    this.wordAudioTransient = new WeakSet();
     this.wordAudioTimers = new Set();
     this.wordAudioQueueToken = 0;
     this.ctx = null;
@@ -171,6 +172,7 @@ export class AudioEngine {
     const clone = new Audio();
     clone.preload = "auto";
     clone.src = url;
+    this.wordAudioTransient.add(clone);
     return clone;
   }
 
@@ -179,8 +181,15 @@ export class AudioEngine {
     const cleanup = () => {
       this.wordAudioActive.delete(audio);
       this.wordAudioCleanup.delete(audio);
+      if (this.wordAudioCurrent === audio) {
+        this.wordAudioCurrent = null;
+      }
       audio.removeEventListener("ended", cleanup);
       audio.removeEventListener("error", cleanup);
+      if (this.wordAudioTransient.has(audio)) {
+        audio.removeAttribute("src");
+        audio.load();
+      }
     };
     this.wordAudioCleanup.set(audio, cleanup);
     audio.addEventListener("ended", cleanup, { once: true });
@@ -363,9 +372,16 @@ export class AudioEngine {
         done = true;
         this.wordAudioActive.delete(audio);
         this.wordAudioCleanup.delete(audio);
+        if (this.wordAudioCurrent === audio) {
+          this.wordAudioCurrent = null;
+        }
         audio.removeEventListener("ended", finish);
         audio.removeEventListener("error", finish);
         clearTimeout(timer);
+        if (this.wordAudioTransient.has(audio)) {
+          audio.removeAttribute("src");
+          audio.load();
+        }
         resolve();
       };
       const timer = setTimeout(finish, maxItemMs);
