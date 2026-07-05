@@ -368,11 +368,11 @@ select option {
   color: var(--ink);
 }
 
-:where(select, input[type="number"], .level-picker-button, .icon-button, .back-button, .bgm-preview-button, .start-button, .secondary-button, .sound-panel-close, .result-close-button, .review-audio-button, .lookup-open, .lookup-close):focus {
+:where(select, input[type="number"], .level-picker-button, .icon-button, .back-button, .bgm-preview-button, .start-button, .secondary-button, .title-reset-button, .sound-panel-close, .result-close-button, .review-audio-button, .reset-confirm-button, .lookup-open, .lookup-close):focus {
   outline: none;
 }
 
-:where(select, input[type="number"], .level-picker-button, .icon-button, .back-button, .bgm-preview-button, .start-button, .secondary-button, .sound-panel-close, .result-close-button, .review-audio-button, .lookup-open, .lookup-close):focus-visible {
+:where(select, input[type="number"], .level-picker-button, .icon-button, .back-button, .bgm-preview-button, .start-button, .secondary-button, .title-reset-button, .sound-panel-close, .result-close-button, .review-audio-button, .reset-confirm-button, .lookup-open, .lookup-close):focus-visible {
   outline: 2px solid var(--cyan);
   outline-offset: 2px;
 }
@@ -399,6 +399,7 @@ select option {
 }
 
 .level-picker-button {
+  position: relative;
   width: 100%;
   height: 42px;
   display: grid;
@@ -409,6 +410,31 @@ select option {
   background: var(--button-secondary-bg);
   cursor: pointer;
   text-align: left;
+}
+
+.overlay.title-mode .level-picker-button {
+  border-color: color-mix(in srgb, var(--gold) 48%, var(--cyan) 18%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold) 18%, transparent), transparent 64%),
+    linear-gradient(90deg, color-mix(in srgb, var(--cyan) 10%, transparent), color-mix(in srgb, var(--gold) 8%, transparent)),
+    var(--button-secondary-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 0 0 1px color-mix(in srgb, var(--gold) 16%, transparent),
+    0 10px 22px rgba(0, 0, 0, 0.22);
+}
+
+.overlay.title-mode .level-picker-button svg {
+  color: var(--gold);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--gold) 42%, transparent));
+}
+
+.overlay.title-mode .level-picker-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--gold) 62%, var(--cyan) 22%);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold) 24%, transparent), transparent 66%),
+    linear-gradient(90deg, color-mix(in srgb, var(--cyan) 12%, transparent), color-mix(in srgb, var(--gold) 12%, transparent)),
+    var(--button-secondary-hover-bg);
 }
 
 .level-picker-label,
@@ -684,6 +710,7 @@ select:hover:not(:disabled) {
 .bgm-preview-button:disabled,
 .start-button:disabled,
 .secondary-button:disabled,
+.title-reset-button:disabled,
 .level-picker-button:disabled,
 select:disabled {
   cursor: default;
@@ -697,23 +724,27 @@ select:disabled {
 .bgm-preview-button:active:not(:disabled),
 .start-button:active:not(:disabled),
 .secondary-button:active:not(:disabled),
+.title-reset-button:active:not(:disabled),
 .level-picker-button:active:not(:disabled) {
   transform: translateY(0);
 }
 
 .back-button {
   height: 42px;
-  min-width: 92px;
+  min-width: 82px;
   display: inline-grid;
-  grid-template-columns: 22px auto;
   place-items: center;
   align-items: center;
-  gap: 7px;
   padding: 0 13px;
-  background: var(--button-secondary-bg);
+  border-color: var(--button-primary-border);
+  background: var(--button-primary-bg);
   cursor: pointer;
-  color: var(--ink);
+  color: var(--button-primary-text);
   font-weight: 900;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 0 0 1px color-mix(in srgb, var(--gold) 22%, transparent),
+    var(--button-shadow);
 }
 
 .level-picker-button:hover:not(:disabled),
@@ -723,14 +754,13 @@ select:disabled {
   background: var(--button-secondary-hover-bg);
 }
 
-.back-button svg {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.back-button:hover:not(:disabled) {
+  border-color: var(--button-primary-border);
+  background: var(--button-primary-hover-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 0 0 1px color-mix(in srgb, var(--gold) 34%, transparent),
+    var(--button-shadow-hover);
 }
 
 .hidden {
@@ -1141,18 +1171,13 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
     width: auto;
     min-width: 78px;
     height: 34px;
-    grid-template-columns: auto auto;
+    grid-template-columns: 1fr;
     padding-inline: 10px;
     font-size: 13px;
   }
 
   .back-button span {
     display: inline;
-  }
-
-  .back-button svg {
-    width: 18px;
-    height: 18px;
   }
 
   .icon-button svg {
@@ -1244,7 +1269,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 }
 
 .overlay.title-mode .overlay-head {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .title-details {
@@ -1276,6 +1301,79 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   font-weight: 850;
 }
 
+.game-mode-control {
+  margin: 0;
+}
+
+.game-mode-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.direction-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.game-mode-option {
+  position: relative;
+  min-width: 0;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: var(--control-bg);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.direction-options .game-mode-option,
+.game-mode-control .game-mode-option {
+  gap: 0;
+}
+
+.game-mode-option input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--gold);
+}
+
+.direction-options .game-mode-option input,
+.game-mode-control .game-mode-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.game-mode-option:has(input:checked) {
+  border-color: var(--button-primary-border);
+  background: color-mix(in srgb, var(--gold) 16%, var(--control-bg));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 18%, transparent);
+}
+
+.game-mode-option:has(input:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--cyan) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.game-mode-option:has(input:disabled) {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.survival-option {
+  width: 100%;
+}
+
 .title-stats {
   display: grid;
   gap: 10px;
@@ -1283,20 +1381,25 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
 .title-stat-cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
 }
 
 .title-stat-card {
   min-width: 0;
-  padding: 10px;
+  padding: 9px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(241, 244, 238, 0.075), rgba(97, 191, 209, 0.055));
 }
 
+.wide-stat-card {
+  grid-column: span 2;
+}
+
 .title-stat-card span,
-.title-chart-row span {
+.title-chart-row span,
+.title-wrong-section h3 {
   display: block;
   color: var(--muted);
   font-size: 11px;
@@ -1312,6 +1415,34 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   font-size: 17px;
   line-height: 1.15;
   text-shadow: 0 0 10px rgba(97, 191, 209, 0.2);
+}
+
+.title-reset-row {
+  display: flex;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.title-reset-button {
+  min-width: 74px;
+  min-height: 30px;
+  padding: 6px 14px;
+  border: 1px solid color-mix(in srgb, var(--gold) 48%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--gold) 8%, rgba(241, 244, 238, 0.035));
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.title-reset-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+}
+
+.title-reset-button:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 .title-chart {
@@ -1352,6 +1483,78 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   box-shadow: 0 0 12px rgba(97, 191, 209, 0.32);
 }
 
+.title-wrong-section {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.title-wrong-section h3 {
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+.title-wrong-list {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.title-wrong-item,
+.title-wrong-empty {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+  border-radius: 8px;
+  background: rgba(241, 244, 238, 0.045);
+}
+
+.title-wrong-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  align-items: center;
+  padding: 7px 9px;
+}
+
+.title-wrong-word {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title-wrong-meaning {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.title-wrong-count {
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.title-wrong-empty {
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .overlay-actions {
   flex: 0 0 auto;
   display: grid;
@@ -1383,7 +1586,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 }
 
 .overlay.title-mode .title-control-grid {
-  margin-bottom: 2px;
+  margin-bottom: 6px;
 }
 
 .overlay.title-mode .level-picker-button,
@@ -1403,6 +1606,78 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
 .overlay.title-mode .level-option-count {
   font-size: 13px;
+}
+
+.overlay.title-mode .game-mode-option {
+  height: 44px;
+  font-size: 16px;
+}
+
+.title-history-caption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 18px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.title-history-caption::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 40%, transparent), transparent);
+}
+
+.title-history-region {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  padding-right: 4px;
+}
+
+.title-history-region::-webkit-scrollbar {
+  width: 7px;
+}
+
+.title-history-region::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--gold) 42%, transparent);
+  border-radius: 999px;
+}
+
+.overlay.title-mode .overlay-panel {
+  height: min(620px, calc(100% - 32px));
+}
+
+.overlay.title-mode .overlay-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-right: 0;
+}
+
+.overlay.title-mode .title-details {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.overlay.title-mode .title-control-grid,
+.overlay.title-mode .direction-control,
+.overlay.title-mode .game-mode-control,
+.overlay.title-mode .survival-option {
+  flex: 0 0 auto;
 }
 
 .overlay-scroll {
@@ -1440,18 +1715,19 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   position: relative;
   width: min(640px, 100%);
   max-height: min(720px, calc(100% - 16px));
-  padding: 14px;
+  padding: 10px 12px;
 }
 
 .overlay.result-mode .overlay-head {
-  min-height: 58px;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
+  min-height: 42px;
+  margin-bottom: 7px;
+  padding-bottom: 7px;
   border-bottom: 1px solid var(--line);
 }
 
 .overlay.result-mode .overlay-panel h2 {
-  font-size: 26px;
+  align-self: start;
+  font-size: 24px;
 }
 
 .overlay.result-mode .overlay-panel p {
@@ -1463,8 +1739,34 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   white-space: nowrap;
 }
 
+.overlay.result-mode .result-close-button {
+  width: 68px;
+  height: 34px;
+  padding-inline: 9px;
+  font-size: 12px;
+}
+
 .overlay.result-mode .overlay-actions {
-  margin-top: 9px;
+  margin-top: 6px;
+}
+
+.overlay.result-mode .start-button {
+  height: 38px;
+  border-color: color-mix(in srgb, var(--gold) 36%, var(--control-border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold) 15%, transparent), transparent),
+    var(--button-secondary-bg);
+  color: var(--ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--gold) 10%, transparent);
+}
+
+.overlay.result-mode .start-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--gold) 48%, var(--control-border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--gold) 20%, transparent), transparent),
+    var(--button-secondary-hover-bg);
 }
 
 .overlay.result-mode .title-details {
@@ -1814,6 +2116,91 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 .review-tooltip.is-mobile-fixed {
   z-index: 170;
   max-width: none;
+}
+
+.reset-confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 185;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.reset-confirm-modal.hidden {
+  display: none;
+}
+
+.reset-confirm-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(8px);
+}
+
+.reset-confirm-window {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--gold) 13%, transparent), transparent 48%),
+    var(--overlay-bg);
+  box-shadow: var(--shadow);
+}
+
+.reset-confirm-window h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.reset-confirm-window p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1.6;
+}
+
+.reset-confirm-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.reset-cancel-button,
+.reset-confirm-button {
+  min-width: 0;
+  height: 42px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.reset-confirm-button {
+  border: 1px solid color-mix(in srgb, var(--red) 68%, var(--button-primary-border));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--red) 28%, var(--control-bg)) 0%,
+    color-mix(in srgb, var(--red) 16%, var(--control-bg)) 100%
+  );
+  color: var(--ink);
+}
+
+.reset-confirm-button:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--red) 34%, var(--control-bg)) 0%,
+    color-mix(in srgb, var(--red) 22%, var(--control-bg)) 100%
+  );
 }
 
 .lookup-modal {
@@ -2254,7 +2641,23 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
   .level-menu {
     width: min(100%, calc(100vw - 18px));
-    max-height: min(360px, 62vh);
+    max-height: min(320px, 58vh);
+    padding: 4px;
+  }
+
+  .level-menu.floating .level-option,
+  .overlay.title-mode .level-option,
+  .level-option {
+    min-height: 36px;
+    gap: 6px;
+    padding: 5px 7px;
+    font-size: 13px;
+  }
+
+  .level-menu.floating .level-option-count,
+  .overlay.title-mode .level-option-count,
+  .level-option-count {
+    font-size: 11px;
   }
 
   .icon-button {
@@ -2264,8 +2667,9 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
   .back-button {
     height: 38px;
-    min-width: 86px;
+    min-width: 82px;
     padding-inline: 10px;
+    font-size: 13px;
   }
 
   body.is-standalone .topbar {
@@ -2297,18 +2701,13 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
     width: auto;
     min-width: 78px;
     height: 34px;
-    grid-template-columns: auto auto;
+    grid-template-columns: 1fr;
     padding-inline: 10px;
     font-size: 13px;
   }
 
   body.is-standalone .back-button span {
     display: inline;
-  }
-
-  body.is-standalone .back-button svg {
-    width: 18px;
-    height: 18px;
   }
 
   body.is-standalone .icon-button svg {
@@ -2394,16 +2793,31 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
   .hud {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-    padding: 7px;
+    gap: 4px;
+    padding: 5px;
   }
 
   .timer-value {
-    font-size: 30px;
+    margin-block: 3px;
+    font-size: 27px;
   }
 
   .timer-line {
-    gap: 7px;
+    gap: 5px;
+  }
+
+  .timer-block,
+  .stats {
+    padding: 5px 6px;
+    border-radius: 8px;
+  }
+
+  .label-row {
+    font-size: 10px;
+  }
+
+  .meter {
+    height: 5px;
   }
 
   .elapsed-value span {
@@ -2411,21 +2825,21 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .elapsed-value strong {
-    font-size: 12px;
-  }
-
-  .stats {
-    gap: 4px;
-  }
-
-  .stat-row {
-    height: 26px;
-    gap: 5px;
     font-size: 11px;
   }
 
+  .stats {
+    gap: 1px;
+  }
+
+  .stat-row {
+    height: 19px;
+    gap: 4px;
+    font-size: 10.5px;
+  }
+
   .stat-row strong {
-    font-size: 15px;
+    font-size: 13px;
   }
 
   .level-meta {
@@ -2433,11 +2847,26 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .overlay {
-    padding: 12px;
+    padding: 8px;
   }
 
   .overlay-panel {
     padding: 18px;
+  }
+
+  .overlay.title-mode {
+    align-items: stretch;
+  }
+
+  .overlay.title-mode .overlay-panel {
+    width: 100%;
+    height: calc(100% - 8px);
+    max-height: calc(100% - 8px);
+    padding: 10px 10px 7px;
+  }
+
+  .overlay.title-mode .overlay-head {
+    margin-bottom: 11px;
   }
 
   .overlay.result-mode .overlay-panel {
@@ -2463,19 +2892,170 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .overlay.title-mode .overlay-panel h2 {
-    font-size: 34px;
+    padding-top: 0;
+    font-size: 32px;
   }
 
   .review-links {
     justify-content: flex-start;
   }
 
+  .overlay.title-mode .overlay-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-right: 0;
+  }
+
+  .overlay.title-mode .title-details {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .overlay.title-mode .title-control-grid,
+  .overlay.title-mode .direction-control,
+  .overlay.title-mode .game-mode-control,
+  .overlay.title-mode .survival-option {
+    flex: 0 0 auto;
+  }
+
+  .overlay.title-mode .title-control > span {
+    display: none;
+  }
+
   .title-control-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1.35fr) minmax(92px, 0.65fr);
+    gap: 6px;
+  }
+
+  .overlay.title-mode .title-control-grid {
+    margin-bottom: 3px;
+  }
+
+  .overlay.title-mode .level-picker-button {
+    height: 42px;
+    grid-template-columns: minmax(0, 1fr) auto 16px;
+    gap: 5px;
+    padding-inline: 10px 8px;
+    font-size: clamp(15px, 4.1vw, 17px);
+  }
+
+  .overlay.title-mode .lane-count-select {
+    height: 42px;
+    padding-left: 9px;
+    padding-right: 28px;
+    font-size: 15px;
+  }
+
+  .overlay.title-mode .level-picker-meta {
+    font-size: 12px;
+  }
+
+  .overlay.title-mode .game-mode-options {
+    gap: 5px;
+  }
+
+  .overlay.title-mode .game-mode-option {
+    height: 36px;
+    gap: 5px;
+    padding-inline: 7px;
+    font-size: 14px;
+  }
+
+  .overlay.title-mode .game-mode-option input {
+    width: 13px;
+    height: 13px;
+  }
+
+  .title-history-caption {
+    flex: 0 0 auto;
+    min-height: 16px;
+    font-size: 10px;
+  }
+
+  .title-history-region {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    padding-right: 4px;
+  }
+
+  .title-history-region::-webkit-scrollbar {
+    width: 7px;
+  }
+
+  .title-history-region::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--gold) 42%, transparent);
+    border-radius: 999px;
+  }
+
+  .overlay.title-mode .title-stats,
+  .overlay.title-mode .title-chart {
+    gap: 6px;
+  }
+
+  .overlay.title-mode .overlay-actions {
+    margin-top: 9px;
+  }
+
+  .overlay.title-mode .start-button {
+    height: 44px;
+  }
+
+  .title-cache-note {
+    margin-top: 4px;
+  }
+
+  .overlay.title-mode .title-cache-note {
+    margin: 3px 0 0;
   }
 
   .title-stat-cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .title-stat-card {
+    padding: 7px 8px;
+  }
+
+  .wide-stat-card {
+    grid-column: 1 / -1;
+  }
+
+  .title-stat-card strong {
+    margin-top: 3px;
+    font-size: 15px;
+  }
+
+  .title-reset-button {
+    min-height: 28px;
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+
+  .title-wrong-list {
+    gap: 4px;
+  }
+
+  .title-wrong-item {
+    padding: 6px 8px;
+  }
+
+  .title-wrong-word {
+    font-size: 13px;
+  }
+
+  .title-wrong-meaning {
+    font-size: 10px;
   }
 
   .review-tooltip {
@@ -2521,14 +3101,15 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .back-button span {
-    display: none;
+    display: inline;
   }
 
   .back-button {
-    min-width: 38px;
-    width: 38px;
+    min-width: 72px;
+    width: auto;
     grid-template-columns: 1fr;
-    padding: 0;
+    padding: 0 8px;
+    font-size: 12px;
   }
 
   .answer-button {
@@ -2570,6 +3151,15 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   .lookup-modal {
     align-items: start;
     padding: 76px 10px 10px;
+  }
+
+  .reset-confirm-modal {
+    align-items: start;
+    padding: 76px 10px 10px;
+  }
+
+  .reset-confirm-window {
+    padding: 16px;
   }
 
   .lookup-window {
@@ -2629,13 +3219,8 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
   .back-button {
     height: 34px;
-    min-width: 78px;
-    font-size: 13px;
-  }
-
-  .back-button svg {
-    width: 18px;
-    height: 18px;
+    min-width: 72px;
+    font-size: 12px;
   }
 
   .icon-button svg {
@@ -2699,26 +3284,26 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
   .hud {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
-    padding: 7px;
+    gap: 4px;
+    padding: 5px;
   }
 
   .stats {
-    gap: 4px;
+    gap: 1px;
   }
 
   .stat-row {
-    height: 26px;
-    gap: 5px;
-    font-size: 11px;
+    height: 18px;
+    gap: 4px;
+    font-size: 10px;
   }
 
   .stat-row strong {
-    font-size: 15px;
+    font-size: 12.5px;
   }
 
   .timer-value {
-    font-size: 30px;
+    font-size: 25px;
   }
 
   .level-meta {
@@ -2726,7 +3311,38 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .overlay-panel {
-    padding: 16px;
+    padding: 14px;
+  }
+
+  .overlay.title-mode .overlay-panel {
+    height: calc(100% - 6px);
+    max-height: calc(100% - 6px);
+    padding: 8px 8px 6px;
+  }
+
+  .overlay.title-mode .overlay-panel h2 {
+    font-size: 30px;
+  }
+
+  .overlay.title-mode .title-details {
+    gap: 6px;
+  }
+
+  .overlay.title-mode .overlay-head {
+    margin-bottom: 9px;
+  }
+
+  .overlay.title-mode .title-control-grid {
+    margin-bottom: 3px;
+  }
+
+  .overlay.title-mode .game-mode-option {
+    height: 34px;
+    font-size: 13px;
+  }
+
+  .overlay.title-mode .overlay-actions {
+    margin-top: 8px;
   }
 
   .overlay.result-mode .overlay-panel {
@@ -2739,13 +3355,24 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .overlay.result-mode .start-button {
-    height: 40px;
+    height: 38px;
   }
 
   .title-cache-note {
+    margin-top: 3px;
     font-size: 11px;
   }
 
+}
+
+@media (max-width: 620px) and (min-height: 701px) {
+  .lane-title {
+    display: none;
+  }
+
+  .lane-panel {
+    gap: 4px;
+  }
 }
 
 @media (max-height: 620px) {
@@ -2804,14 +3431,14 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .back-button span {
-    display: none;
+    display: inline;
   }
 
   .back-button {
-    min-width: 38px;
-    width: 38px;
+    min-width: 68px;
+    width: auto;
     grid-template-columns: 1fr;
-    padding: 0;
+    padding: 0 7px;
   }
 
   .answer-button {

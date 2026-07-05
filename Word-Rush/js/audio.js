@@ -28,6 +28,7 @@ export class AudioEngine {
     this.wordAudioPool = new Map();
     this.wordAudioCurrent = null;
     this.wordAudioTimers = new Set();
+    this.wordAudioQueueToken = 0;
     this.ctx = null;
     this.master = null;
     this.supported = Boolean(globalThis.AudioContext || globalThis.webkitAudioContext);
@@ -172,6 +173,7 @@ export class AudioEngine {
 
   stopWordAudio() {
     this.clearWordAudioTimers();
+    this.wordAudioQueueToken += 1;
     if (this.wordAudioCurrent) {
       this.wordAudioCurrent.pause();
       try {
@@ -187,6 +189,9 @@ export class AudioEngine {
     if (!this.sfxEnabled() || !url || !globalThis.Audio) {
       return;
     }
+    if (!options.fromQueue) {
+      this.wordAudioQueueToken += 1;
+    }
     const shouldPlay = typeof options.shouldPlay === "function" ? options.shouldPlay : null;
     if (shouldPlay && !shouldPlay()) {
       return;
@@ -195,7 +200,7 @@ export class AudioEngine {
     if (delayMs) {
       const timer = setTimeout(() => {
         this.wordAudioTimers.delete(timer);
-        this.playWordAudio(url, { shouldPlay });
+        this.playWordAudio(url, { shouldPlay, fromQueue: options.fromQueue });
       }, delayMs);
       this.wordAudioTimers.add(timer);
       return;
@@ -222,6 +227,98 @@ export class AudioEngine {
     }
     audio.play().catch(() => {
       // User gesture and autoplay rules can still block media on some browsers.
+    });
+  }
+
+  playWordAudioQueue(items, options = {}) {
+    if (!this.sfxEnabled() || !globalThis.Audio) {
+      return;
+    }
+    const queue = (Array.isArray(items) ? items : [items])
+      .map((item) => (typeof item === "string" ? { url: item } : item))
+      .filter((item) => item?.url);
+    if (!queue.length) {
+      return;
+    }
+    const token = this.wordAudioQueueToken + 1;
+    this.wordAudioQueueToken = token;
+    const delayMs = Math.max(0, Number(options.delayMs) || 0);
+    const gapMs = Math.max(0, Number(options.gapMs) || 0);
+    const maxItemMs = Math.max(700, Number(options.maxItemMs) || 1800);
+
+    const playNext = async () => {
+      if (delayMs) {
+        await new Promise((resolve) => {
+          const timer = setTimeout(() => {
+            this.wordAudioTimers.delete(timer);
+            resolve();
+          }, delayMs);
+          this.wordAudioTimers.add(timer);
+        });
+      }
+      for (const item of queue) {
+        if (this.wordAudioQueueToken !== token) {
+          return;
+        }
+        const shouldPlay = typeof item.shouldPlay === "function" ? item.shouldPlay : null;
+        if (shouldPlay && !shouldPlay()) {
+          continue;
+        }
+        await this.playWordAudioQueueItem(item.url, token, maxItemMs);
+        if (gapMs && this.wordAudioQueueToken === token) {
+          await new Promise((resolve) => {
+            const timer = setTimeout(() => {
+              this.wordAudioTimers.delete(timer);
+              resolve();
+            }, gapMs);
+            this.wordAudioTimers.add(timer);
+          });
+        }
+      }
+    };
+
+    playNext();
+  }
+
+  playWordAudioQueueItem(url, token, maxItemMs) {
+    if (this.wordAudioQueueToken !== token) {
+      return Promise.resolve();
+    }
+    const audio = this.ensureWordAudio(url, "auto");
+    if (!audio) {
+      return Promise.resolve();
+    }
+    if (this.wordAudioCurrent && this.wordAudioCurrent !== audio) {
+      this.wordAudioCurrent.pause();
+      try {
+        this.wordAudioCurrent.currentTime = 0;
+      } catch {
+        // Metadata may not be ready yet.
+      }
+    }
+    this.wordAudioCurrent = audio;
+    audio.volume = this.wordAudioVolume();
+    try {
+      audio.currentTime = 0;
+    } catch {
+      // Metadata may not be ready yet.
+    }
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) {
+          return;
+        }
+        done = true;
+        audio.removeEventListener("ended", finish);
+        audio.removeEventListener("error", finish);
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(finish, maxItemMs);
+      audio.addEventListener("ended", finish, { once: true });
+      audio.addEventListener("error", finish, { once: true });
+      audio.play().catch(finish);
     });
   }
 

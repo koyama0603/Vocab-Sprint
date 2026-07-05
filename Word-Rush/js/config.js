@@ -8,7 +8,10 @@ export const WORD_STATS_STORAGE_KEY = "word-rush-word-stats-v1";
 
 export const DEFAULT_PREFERENCES = {
   levelId: "a1-part1",
-  laneCount: 2
+  laneCount: 2,
+  gameModeId: "rush",
+  quizDirection: "meaning",
+  survivalEnabled: false
 };
 
 export const DEFAULT_GAME_SETTINGS = {

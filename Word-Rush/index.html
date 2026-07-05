@@ -113,12 +113,8 @@
             <path d="M8 5l11 7-11 7z"></path>
           </svg>
         </button>
-        <button class="back-button" id="backButton" type="button" title="Retry" aria-label="Retry">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M19 12H5"></path>
-            <path d="M12 19l-7-7 7-7"></path>
-          </svg>
-          <span>Retry</span>
+        <button class="back-button" id="backButton" type="button" title="Return" aria-label="Return">
+          <span>Return</span>
         </button>
       </div>
     </header>
@@ -175,42 +171,88 @@
                     </select>
                   </label>
                 </div>
-                <section class="title-stats" id="titleStats" aria-label="選択したレベルの統計">
-                  <div class="title-stat-cards">
-                    <div class="title-stat-card">
-                      <span>Play</span>
-                      <strong id="titlePlayCountValue">0回</strong>
-                    </div>
-                    <div class="title-stat-card">
-                      <span>Best</span>
-                      <strong id="titleBestValue">0</strong>
-                    </div>
-                    <div class="title-stat-card">
-                      <span>Learned</span>
-                      <strong id="titleLearnedValue">0 / 0</strong>
-                    </div>
-                    <div class="title-stat-card">
-                      <span>Accuracy</span>
-                      <strong id="titleAccuracyValue">0 / 0</strong>
-                    </div>
+                <div class="title-control direction-control">
+                  <div class="game-mode-options direction-options" id="quizDirectionOptions" role="radiogroup" aria-label="出題方向">
+                    <label class="game-mode-option">
+                      <input type="radio" name="quizDirection" value="meaning" checked>
+                      <span>英→日</span>
+                    </label>
+                    <label class="game-mode-option">
+                      <input type="radio" name="quizDirection" value="recall">
+                      <span>日→英</span>
+                    </label>
                   </div>
-                  <div class="title-chart">
-                    <div class="title-chart-row">
-                      <span>学習済み</span>
-                      <div class="title-chart-track" aria-hidden="true">
-                        <i id="titleLearnedBar"></i>
-                      </div>
-                      <strong id="titleLearnedRate">0%</strong>
-                    </div>
-                    <div class="title-chart-row">
-                      <span>正答率</span>
-                      <div class="title-chart-track" aria-hidden="true">
-                        <i id="titleAccuracyBar"></i>
-                      </div>
-                      <strong id="titleAccuracyRate">0%</strong>
-                    </div>
+                </div>
+                <div class="title-control game-mode-control">
+                  <div class="game-mode-options" id="gameModeOptions" role="radiogroup" aria-label="ゲームモード">
+                    <label class="game-mode-option">
+                      <input type="radio" name="gameMode" value="rush" checked>
+                      <span>ラッシュ</span>
+                    </label>
+                    <label class="game-mode-option">
+                      <input type="radio" name="gameMode" value="fade">
+                      <span>集中</span>
+                    </label>
+                    <label class="game-mode-option">
+                      <input type="radio" name="gameMode" value="fixed">
+                      <span>じっくり</span>
+                    </label>
                   </div>
-                </section>
+                </div>
+                <label class="game-mode-option survival-option">
+                  <input type="checkbox" id="survivalInput">
+                  <span>サバイバルモード</span>
+                </label>
+                <div class="title-history-region">
+                  <div class="title-history-caption">HISTORY</div>
+                  <section class="title-stats" id="titleStats" aria-label="選択したレベルの統計">
+                    <div class="title-chart">
+                      <div class="title-chart-row">
+                        <span>学習済み</span>
+                        <div class="title-chart-track" aria-hidden="true">
+                          <i id="titleLearnedBar"></i>
+                        </div>
+                        <strong id="titleLearnedRate">0%</strong>
+                      </div>
+                      <div class="title-chart-row">
+                        <span>正答率</span>
+                        <div class="title-chart-track" aria-hidden="true">
+                          <i id="titleAccuracyBar"></i>
+                        </div>
+                        <strong id="titleAccuracyRate">0%</strong>
+                      </div>
+                    </div>
+                    <div class="title-reset-row">
+                      <button class="title-reset-button" id="resetLevelStatsButton" type="button">Reset</button>
+                    </div>
+                    <div class="title-stat-cards">
+                      <div class="title-stat-card">
+                        <span>プレイ回数</span>
+                        <strong id="titlePlayCountValue">0回</strong>
+                      </div>
+                      <div class="title-stat-card">
+                        <span>ベストスコア</span>
+                        <strong id="titleBestValue">0</strong>
+                      </div>
+                      <div class="title-stat-card">
+                        <span>出題済の単語数</span>
+                        <strong id="titleLearnedValue">0 / 0</strong>
+                      </div>
+                      <div class="title-stat-card">
+                        <span>未正解</span>
+                        <strong id="titleUncorrectedValue">0 / 0</strong>
+                      </div>
+                      <div class="title-stat-card wide-stat-card">
+                        <span>累積正答数 / 累積出題数</span>
+                        <strong id="titleCumulativeValue">0 / 0</strong>
+                      </div>
+                    </div>
+                    <section class="title-wrong-section" aria-label="誤答が多い単語 Best 10">
+                      <h3>誤答が多い単語 Best10</h3>
+                      <ol class="title-wrong-list" id="titleWrongBestList"></ol>
+                    </section>
+                  </section>
+                </div>
               </div>
               <div class="review-list" id="reviewList"></div>
             </div>
@@ -218,7 +260,7 @@
               <button class="start-button" id="startButton" type="button" disabled>Start</button>
               <button class="secondary-button hidden" id="overlayBackButton" type="button">戻る</button>
             </div>
-            <p class="title-cache-note" id="titleCacheNote">ブラウザのキャッシュを消去するとハイスコアやプレイ回数などが消えます。</p>
+            <p class="title-cache-note" id="titleCacheNote">ブラウザのキャッシュを消すとスコア情報が消えます。</p>
           </div>
         </div>
       </div>
@@ -266,6 +308,18 @@
         <section class="feed" id="feed" aria-label="プレイ履歴"></section>
       </aside>
     </section>
+
+    <div class="reset-confirm-modal hidden" id="resetConfirmModal" role="dialog" aria-modal="true" aria-labelledby="resetConfirmTitle" aria-describedby="resetConfirmCopy">
+      <div class="reset-confirm-backdrop" id="resetConfirmBackdrop"></div>
+      <section class="reset-confirm-window">
+        <h2 id="resetConfirmTitle">スコア情報をリセット</h2>
+        <p id="resetConfirmCopy">選択中のレベルのスコア、プレイ回数、単語ごとの正答・誤答数をリセットします。</p>
+        <div class="reset-confirm-actions">
+          <button class="secondary-button reset-cancel-button" id="resetCancelButton" type="button">Cancel</button>
+          <button class="reset-confirm-button" id="resetConfirmButton" type="button">Reset</button>
+        </div>
+      </section>
+    </div>
 
     <div class="lookup-modal hidden" id="lookupModal" role="dialog" aria-modal="true" aria-labelledby="lookupTitle">
       <div class="lookup-backdrop" id="lookupBackdrop"></div>
