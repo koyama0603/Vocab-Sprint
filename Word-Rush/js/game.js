@@ -76,6 +76,52 @@ const LANE_KEY_LAYOUTS = {
   ]
 };
 
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function parseCanvasColor(color) {
+  const value = String(color || "").trim();
+  if (!value) {
+    return null;
+  }
+  if (value === "transparent") {
+    return { r: 0, g: 0, b: 0, a: 0 };
+  }
+  const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+  if (hex) {
+    const raw = hex[1];
+    const parts = raw.length <= 4
+      ? Array.from(raw).map((part) => part + part)
+      : raw.match(/.{2}/g);
+    return {
+      r: parseInt(parts[0], 16),
+      g: parseInt(parts[1], 16),
+      b: parseInt(parts[2], 16),
+      a: parts[3] ? parseInt(parts[3], 16) / 255 : 1
+    };
+  }
+  const rgb = value.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i);
+  if (!rgb) {
+    return null;
+  }
+  return {
+    r: Number(rgb[1]),
+    g: Number(rgb[2]),
+    b: Number(rgb[3]),
+    a: rgb[4] === undefined ? 1 : Number(rgb[4])
+  };
+}
+
+function colorWithAlpha(color, alpha) {
+  const parsed = parseCanvasColor(color);
+  if (!parsed) {
+    return color;
+  }
+  const nextAlpha = clamp01(parsed.a * alpha);
+  return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${nextAlpha})`;
+}
+
 export class VocabSprintGame {
   constructor() {
     this.canvas = document.getElementById("gameCanvas");
@@ -2997,7 +3043,7 @@ export class VocabSprintGame {
       const fadeInAlpha = 1 - (1 - fadeInT) ** 3;
       const fadeOutAlpha = lane.fadeDuration ? Math.max(0, Math.min(1, lane.fadeOut / lane.fadeDuration)) : 1;
       const modeFadeAlpha = mode.cardMotion === "fade" && !lane.locked && lane.cardTimeLimit
-        ? Math.max(0, Math.min(1, (lane.cardTimeLeft / lane.cardTimeLimit - (1 - FADE_MODE_VISIBLE_RATIO)) / FADE_MODE_VISIBLE_RATIO))
+        ? clamp01((lane.cardTimeLeft / lane.cardTimeLimit - (1 - FADE_MODE_VISIBLE_RATIO)) / FADE_MODE_VISIBLE_RATIO)
         : 1;
       const alpha = fadeInAlpha * fadeOutAlpha * modeFadeAlpha;
       if (alpha <= 0.01) {
@@ -3030,27 +3076,34 @@ export class VocabSprintGame {
         : lane.fadeKind === "wrong" ? "rgba(223, 101, 87, 0.44)"
           : spawning ? "rgba(97, 191, 209, 0.42)"
             : "rgba(97, 191, 209, 0.2)";
+      const alphaCardBgTop = colorWithAlpha(cardBgTop, alpha);
+      const alphaCardBgBottom = colorWithAlpha(cardBgBottom, alpha);
+      const alphaCardBorder = colorWithAlpha(borderColor, alpha);
+      const alphaCardHighlight = colorWithAlpha(cardHighlight, alpha);
+      const alphaCardShadow = colorWithAlpha(cardShadow, alpha);
+      const alphaGlow = colorWithAlpha(glow, alpha);
+      const alphaCardText = colorWithAlpha(cardText, alpha);
       const radius = 10;
 
       this.ctx.save();
-      this.ctx.globalAlpha = alpha;
-      this.ctx.shadowColor = cardShadow;
+      this.ctx.globalAlpha = 1;
+      this.ctx.shadowColor = alphaCardShadow;
       this.ctx.shadowBlur = 14;
       this.ctx.shadowOffsetY = 5;
       this.roundRect(x, y, cardWidth, cardHeight, radius);
       const bg = this.ctx.createLinearGradient(x, y, x, y + cardHeight);
-      bg.addColorStop(0, cardBgTop);
-      bg.addColorStop(1, cardBgBottom);
+      bg.addColorStop(0, alphaCardBgTop);
+      bg.addColorStop(1, alphaCardBgBottom);
       this.ctx.fillStyle = bg;
       this.ctx.fill();
       this.ctx.shadowOffsetY = 0;
-      this.ctx.shadowColor = glow;
+      this.ctx.shadowColor = alphaGlow;
       this.ctx.shadowBlur = pulse || lane.fadeKind || spawning ? 20 : 14;
-      this.ctx.strokeStyle = borderColor;
+      this.ctx.strokeStyle = alphaCardBorder;
       this.ctx.lineWidth = pulse || lane.fadeKind ? 2.2 : 1.6;
       this.ctx.stroke();
       this.ctx.shadowBlur = 0;
-      this.ctx.strokeStyle = cardHighlight;
+      this.ctx.strokeStyle = alphaCardHighlight;
       this.ctx.lineWidth = 1;
       this.ctx.beginPath();
       this.ctx.moveTo(x + radius, y + 1.5);
@@ -3068,7 +3121,7 @@ export class VocabSprintGame {
       const textLayout = visibleCharacters <= 15
         ? this.layoutCanvasSingleLine(cleanPrompt, textMaxWidth, cardHeight - 18, baseFont, Math.max(12, minFont - 2))
         : this.layoutCanvasText(cleanPrompt, textMaxWidth, cardHeight - 18, baseFont, maxLines, minFont);
-      this.ctx.fillStyle = cardText;
+      this.ctx.fillStyle = alphaCardText;
       this.setCanvasFont(textLayout.size);
       this.ctx.textAlign = "center";
       this.ctx.textBaseline = "middle";
