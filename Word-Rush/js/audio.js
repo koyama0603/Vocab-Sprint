@@ -27,6 +27,8 @@ export class AudioEngine {
     this.wordAudioRevisionReady = null;
     this.wordAudioPool = new Map();
     this.wordAudioCurrent = null;
+    this.wordAudioActive = new Set();
+    this.wordAudioCleanup = new Map();
     this.wordAudioTimers = new Set();
     this.wordAudioQueueToken = 0;
     this.ctx = null;
@@ -142,7 +144,7 @@ export class AudioEngine {
       return;
     }
     const entries = Array.from(this.wordAudioPool.entries())
-      .filter(([, entry]) => entry.audio !== this.wordAudioCurrent && entry.audio.paused)
+      .filter(([, entry]) => !this.wordAudioActive.has(entry.audio) && entry.audio.paused)
       .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
     while (this.wordAudioPool.size > WORD_AUDIO_POOL_LIMIT && entries.length) {
       const [url, entry] = entries.shift();
@@ -150,6 +152,34 @@ export class AudioEngine {
       entry.audio.load();
       this.wordAudioPool.delete(url);
     }
+  }
+
+  playableWordAudio(url) {
+    const audio = this.ensureWordAudio(url, "auto");
+    if (!audio) {
+      return null;
+    }
+    if (audio.paused) {
+      return audio;
+    }
+    const clone = new Audio();
+    clone.preload = "auto";
+    clone.src = url;
+    return clone;
+  }
+
+  trackWordAudio(audio) {
+    this.wordAudioActive.add(audio);
+    const cleanup = () => {
+      this.wordAudioActive.delete(audio);
+      this.wordAudioCleanup.delete(audio);
+      audio.removeEventListener("ended", cleanup);
+      audio.removeEventListener("error", cleanup);
+    };
+    this.wordAudioCleanup.set(audio, cleanup);
+    audio.addEventListener("ended", cleanup, { once: true });
+    audio.addEventListener("error", cleanup, { once: true });
+    return cleanup;
   }
 
   preloadWordAudio(urls, options = {}) {
@@ -174,14 +204,17 @@ export class AudioEngine {
   stopWordAudio() {
     this.clearWordAudioTimers();
     this.wordAudioQueueToken += 1;
-    if (this.wordAudioCurrent) {
-      this.wordAudioCurrent.pause();
+    for (const audio of this.wordAudioActive) {
+      audio.pause();
       try {
-        this.wordAudioCurrent.currentTime = 0;
+        audio.currentTime = 0;
       } catch {
         // Some mobile browsers reject currentTime changes before metadata exists.
       }
+      this.wordAudioCleanup.get(audio)?.();
     }
+    this.wordAudioActive.clear();
+    this.wordAudioCleanup.clear();
     this.wordAudioCurrent = null;
   }
 
@@ -206,17 +239,9 @@ export class AudioEngine {
       return;
     }
 
-    const audio = this.ensureWordAudio(url, "auto");
+    const audio = this.playableWordAudio(url);
     if (!audio) {
       return;
-    }
-    if (this.wordAudioCurrent && this.wordAudioCurrent !== audio) {
-      this.wordAudioCurrent.pause();
-      try {
-        this.wordAudioCurrent.currentTime = 0;
-      } catch {
-        // Metadata may not be ready yet.
-      }
     }
     this.wordAudioCurrent = audio;
     audio.volume = this.wordAudioVolume();
@@ -225,7 +250,9 @@ export class AudioEngine {
     } catch {
       // Metadata may not be ready yet.
     }
+    const cleanup = this.trackWordAudio(audio);
     audio.play().catch(() => {
+      cleanup();
       // User gesture and autoplay rules can still block media on some browsers.
     });
   }
@@ -284,17 +311,9 @@ export class AudioEngine {
     if (this.wordAudioQueueToken !== token) {
       return Promise.resolve();
     }
-    const audio = this.ensureWordAudio(url, "auto");
+    const audio = this.playableWordAudio(url);
     if (!audio) {
       return Promise.resolve();
-    }
-    if (this.wordAudioCurrent && this.wordAudioCurrent !== audio) {
-      this.wordAudioCurrent.pause();
-      try {
-        this.wordAudioCurrent.currentTime = 0;
-      } catch {
-        // Metadata may not be ready yet.
-      }
     }
     this.wordAudioCurrent = audio;
     audio.volume = this.wordAudioVolume();
@@ -310,12 +329,16 @@ export class AudioEngine {
           return;
         }
         done = true;
+        this.wordAudioActive.delete(audio);
+        this.wordAudioCleanup.delete(audio);
         audio.removeEventListener("ended", finish);
         audio.removeEventListener("error", finish);
         clearTimeout(timer);
         resolve();
       };
       const timer = setTimeout(finish, maxItemMs);
+      this.wordAudioActive.add(audio);
+      this.wordAudioCleanup.set(audio, finish);
       audio.addEventListener("ended", finish, { once: true });
       audio.addEventListener("error", finish, { once: true });
       audio.play().catch(finish);
@@ -625,8 +648,14 @@ export class AudioEngine {
     }
     if (!this.sfxEnabled()) {
       this.stopWordAudio();
-    } else if (this.wordAudioCurrent) {
-      this.wordAudioCurrent.volume = this.wordAudioVolume();
+    } else {
+      const volume = this.wordAudioVolume();
+      for (const audio of this.wordAudioActive) {
+        audio.volume = volume;
+      }
+      if (this.wordAudioCurrent) {
+        this.wordAudioCurrent.volume = volume;
+      }
     }
     if (this.previewAudio) {
       this.previewAudio.volume = this.bgmVolume();

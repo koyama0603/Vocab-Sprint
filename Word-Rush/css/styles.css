@@ -24,6 +24,9 @@
   --key-bg: rgba(241, 244, 238, 0.1);
   --overlay-scrim: rgba(8, 11, 12, 0.48);
   --overlay-bg: rgba(23, 32, 34, 0.96);
+  --tooltip-bg: rgba(28, 42, 45, 0.98);
+  --tooltip-border: rgba(97, 191, 209, 0.34);
+  --tooltip-shadow: 0 18px 44px rgba(0, 0, 0, 0.46), 0 0 0 1px rgba(240, 206, 108, 0.08);
   --review-bg: rgba(241, 244, 238, 0.07);
   --meter-bg: rgba(241, 244, 238, 0.1);
   --canvas-bg: #0c1113;
@@ -91,6 +94,9 @@ body[data-theme="light"] {
   --key-bg: rgba(22, 131, 151, 0.1);
   --overlay-scrim: rgba(240, 245, 244, 0.54);
   --overlay-bg: rgba(255, 255, 255, 0.96);
+  --tooltip-bg: rgba(246, 252, 251, 0.99);
+  --tooltip-border: rgba(22, 131, 151, 0.26);
+  --tooltip-shadow: 0 16px 38px rgba(37, 52, 55, 0.22), 0 0 0 1px rgba(185, 130, 13, 0.1);
   --review-bg: rgba(22, 131, 151, 0.08);
   --meter-bg: rgba(42, 72, 76, 0.1);
   --canvas-bg: #edf4f3;
@@ -2070,10 +2076,12 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   max-width: min(560px, calc(100vw - 20px));
   padding: 12px 14px;
   pointer-events: none;
-  background: var(--overlay-bg);
-  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--cyan) 8%, transparent), transparent 58%),
+    var(--tooltip-bg);
+  border: 1px solid var(--tooltip-border);
   border-radius: 8px;
-  box-shadow: var(--shadow);
+  box-shadow: var(--tooltip-shadow);
   color: var(--ink);
   font-size: 30px;
   line-height: 1.35;

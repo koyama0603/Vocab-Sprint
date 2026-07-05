@@ -2649,7 +2649,10 @@ export class VocabSprintGame {
 
     const mode = this.activeGameMode();
     const size = this.canvasSize();
-    const speed = this.speedNow();
+    const isFallMode = mode.cardMotion === "fall";
+    const speed = isFallMode ? this.speedNow() : 0;
+    const fixedY = isFallMode ? 0 : this.fixedCardYForLane(size.width / this.activeLaneCount(), size);
+    const missY = isFallMode ? this.missLineY(size) : 0;
     for (let i = 0; i < this.state.lanes.length; i += 1) {
       const lane = this.state.lanes[i];
       lane.age += dt;
@@ -2659,22 +2662,23 @@ export class VocabSprintGame {
       if (lane.locked) {
         continue;
       }
-      if (mode.cardMotion === "fall") {
+      if (isFallMode) {
         lane.y += speed * dt;
       } else {
-        lane.y = this.fixedCardYForLane(size.width / this.activeLaneCount(), size);
+        lane.y = fixedY;
       }
       if (mode.usesCardTimeout) {
         lane.cardTimeLeft = Math.max(0, (lane.cardTimeLeft || 0) - dt);
       }
       if (
-        (mode.cardMotion === "fall" && lane.y > this.missLineY(size))
+        (isFallMode && lane.y > missY)
         || (mode.usesCardTimeout && lane.cardTimeLeft <= 0)
       ) {
         this.missLane(i);
       }
     }
 
+    let aliveEffectCount = 0;
     for (const effect of this.state.effects) {
       effect.life -= dt;
       if (effect.type === "particle") {
@@ -2685,8 +2689,12 @@ export class VocabSprintGame {
       } else if (effect.type !== "shockwave") {
         effect.y -= 26 * dt;
       }
+      if (effect.life > 0) {
+        this.state.effects[aliveEffectCount] = effect;
+        aliveEffectCount += 1;
+      }
     }
-    this.state.effects = this.state.effects.filter((effect) => effect.life > 0);
+    this.state.effects.length = aliveEffectCount;
   }
 
   drawLaneFlow(x, laneWidth, height, laneIndex, flow, now) {
@@ -2807,7 +2815,7 @@ export class VocabSprintGame {
     this.ctx.lineTo(size.width - 1, size.height);
     this.ctx.stroke();
 
-    this.drawWords(laneWidth);
+    this.drawWords(laneWidth, lanes, this.activeGameMode());
     this.drawEffects(laneWidth);
   }
 
@@ -2969,7 +2977,7 @@ export class VocabSprintGame {
     this.ctx.closePath();
   }
 
-  drawWords(laneWidth) {
+  drawWords(laneWidth, lanes = this.activeLaneCount(), mode = this.activeGameMode()) {
     const colors = this.colors;
     const cardText = colors.cardText;
     const cardBgTop = colors.cardBgTop;
@@ -2984,12 +2992,11 @@ export class VocabSprintGame {
       if (!lane) {
         continue;
       }
-      const lanes = this.activeLaneCount();
       const card = this.cardMetrics(lane, laneWidth);
       const fadeInT = Math.max(0, Math.min(1, lane.age / CARD_FADE_IN_TIME));
       const fadeInAlpha = 1 - (1 - fadeInT) ** 3;
       const fadeOutAlpha = lane.fadeDuration ? Math.max(0, Math.min(1, lane.fadeOut / lane.fadeDuration)) : 1;
-      const modeFadeAlpha = this.activeGameMode().cardMotion === "fade" && !lane.locked && lane.cardTimeLimit
+      const modeFadeAlpha = mode.cardMotion === "fade" && !lane.locked && lane.cardTimeLimit
         ? Math.max(0, Math.min(1, (lane.cardTimeLeft / lane.cardTimeLimit - (1 - FADE_MODE_VISIBLE_RATIO)) / FADE_MODE_VISIBLE_RATIO))
         : 1;
       const alpha = fadeInAlpha * fadeOutAlpha * modeFadeAlpha;
