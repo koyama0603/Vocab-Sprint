@@ -265,7 +265,7 @@ export class AudioEngine {
     this.wordAudioLoadMonitors.clear();
   }
 
-  trackWordAudio(audio, maxMs = 8000) {
+  trackWordAudio(audio, maxMs = 8000, onCleanup = null) {
     this.wordAudioActive.add(audio);
     // ended/error が発火しないまま停滞した場合の watchdog。
     // これが無いと wordAudioActive にAudio要素が溜まり続け、プールの追い出しも効かなくなる。
@@ -282,6 +282,9 @@ export class AudioEngine {
       }
       audio.removeEventListener("ended", cleanup);
       audio.removeEventListener("error", cleanup);
+      if (typeof onCleanup === "function") {
+        onCleanup();
+      }
       if (this.wordAudioTransient.has(audio)) {
         audio.removeAttribute("src");
         audio.load();
@@ -372,7 +375,7 @@ export class AudioEngine {
       // Metadata may not be ready yet.
     }
     const clearLoadMonitor = this.monitorWordAudioLoad(audio, url);
-    const cleanup = this.trackWordAudio(audio);
+    const cleanup = this.trackWordAudio(audio, 8000, () => clearLoadMonitor("error"));
     audio.play().then(() => {
       clearLoadMonitor("ready");
     }).catch(() => {

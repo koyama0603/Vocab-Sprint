@@ -2805,8 +2805,9 @@ export class VocabSprintGame {
     const valueWeight = valueStyle.fontWeight || "900";
     const labelBase = parseFloat(labelStyle.fontSize) || 12;
     const valueBase = parseFloat(valueStyle.fontSize) || 16;
-    const labelMin = Math.max(9, labelBase * 0.72);
-    const valueMin = Math.max(11, valueBase * 0.72);
+    const isWideScoreValue = valueElement.id === "scoreValue" || valueElement.id === "bestValue";
+    const labelMin = Math.max(isWideScoreValue ? 8 : 9, labelBase * (isWideScoreValue ? 0.62 : 0.72));
+    const valueMin = Math.max(isWideScoreValue ? 9 : 11, valueBase * (isWideScoreValue ? 0.5 : 0.72));
 
     const measure = (text, weight, size, family) => {
       context.font = `${weight} ${size}px ${family}`;
@@ -2971,8 +2972,15 @@ export class VocabSprintGame {
     }
     this.recordUnansweredLanes();
     this.state.phase = "over";
+    this.stopRenderLoop();
     this.hideNetworkToast({ clear: true });
     this.clearSpawnTimers();
+    this.hideReviewTooltip();
+    this.clearAnswerFocus();
+    this.setLevelMenuOpen(false);
+    this.setSoundPanelOpen(false);
+    this.state.countdownSecond = 0;
+    this.state.effects = [];
     this.audio.fadeOutBgm(1800);
     this.audio.stopWordAudio();
     this.audio.releaseWordAudioPool();
@@ -3108,18 +3116,24 @@ export class VocabSprintGame {
       const size = this.canvasSize();
       const bottomBonus = Math.max(0, Math.round((1 - lane.y / (size.height - 92)) * 40));
       const gain = 100 + this.activeLevel().bonus + bottomBonus + Math.min(90, this.state.streak * 3);
-      const timeBonus = this.state.settings.correctTimeBonus
-        + this.state.streak * this.state.settings.streakTimeMultiplier;
+      const timeBonus = this.activeGameMode().id === "fixed"
+        ? 0
+        : this.state.settings.correctTimeBonus + this.state.streak * this.state.settings.streakTimeMultiplier;
       this.state.score += gain;
-      this.adjustTime(timeBonus);
+      if (timeBonus > 0) {
+        this.adjustTime(timeBonus);
+      }
       this.startLaneFade(lane, "correct", CARD_FADE_OUT_TIME);
       this.addCardParticles(laneIndex, lane, "correct");
       this.audio.playSfx("correct");
       this.playRecallAnswerWordAudio(lane.word);
       this.recordReview(lane.word, picked, "correct");
       this.state.effects.push({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: this.colors.green });
-      this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: this.colors.gold });
-      this.addFeed(`${promptText} = ${correctAnswer} / ${this.formatTimeDelta(timeBonus)}`);
+      if (timeBonus > 0) {
+        this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: this.colors.gold });
+      }
+      const timeText = timeBonus > 0 ? ` / ${this.formatTimeDelta(timeBonus)}` : "";
+      this.addFeed(`${promptText} = ${correctAnswer}${timeText}`);
       this.scheduleSpawn(laneIndex, CARD_FADE_OUT_TIME * 1000);
     } else {
       lane.locked = true;
@@ -3599,7 +3613,7 @@ export class VocabSprintGame {
       this.ctx.save();
       this.ctx.globalAlpha = 1;
       this.ctx.shadowColor = alphaCardShadow;
-      this.ctx.shadowBlur = 14;
+      this.ctx.shadowBlur = 14 * alpha;
       this.ctx.shadowOffsetY = 5;
       this.roundRect(x, y, cardWidth, cardHeight, radius);
       const bg = this.ctx.createLinearGradient(x, y, x, y + cardHeight);
@@ -3609,7 +3623,7 @@ export class VocabSprintGame {
       this.ctx.fill();
       this.ctx.shadowOffsetY = 0;
       this.ctx.shadowColor = alphaGlow;
-      this.ctx.shadowBlur = pulse || lane.fadeKind || spawning ? 20 : 14;
+      this.ctx.shadowBlur = (pulse || lane.fadeKind || spawning ? 20 : 14) * alpha;
       this.ctx.strokeStyle = alphaCardBorder;
       this.ctx.lineWidth = pulse || lane.fadeKind ? 2.2 : 1.6;
       this.ctx.stroke();
@@ -3622,32 +3636,34 @@ export class VocabSprintGame {
       this.ctx.stroke();
 
       // テキストレイアウト（measureTextのループ）は高コストなので、
-      // 文言とカード幅が変わらない限りレーン単位でキャッシュして毎フレームの再計算を避ける。
-      // カード幅はフェード中の scale で微変動するため 2px 単位に丸めてキーにする。
+      // 文言と基準カード幅が変わらない限りレーン単位でキャッシュする。
+      // フェード中の拡大縮小は描画時のフォントサイズだけに反映し、再レイアウトを避ける。
       const cleanPrompt = this.promptTextFor(lane.word).replace(/\s+/g, " ");
-      const layoutKey = `${cleanPrompt}|${Math.round(cardWidth / 2) * 2}|${lanes}`;
+      const layoutKey = `${cleanPrompt}|${Math.round(card.width)}|${Math.round(card.height)}|${lanes}`;
       let textLayout = lane.textLayoutKey === layoutKey ? lane.textLayout : null;
       if (!textLayout) {
-        const textMaxWidth = cardWidth - (laneWidth < 130 ? 12 : 24);
-        const maxLines = cardWidth < 118 ? 3 : 2;
+        const textMaxWidth = card.width - (laneWidth < 130 ? 12 : 24);
+        const maxLines = card.width < 118 ? 3 : 2;
         const maxFont = lanes === 1 ? 46 : lanes === 2 ? 40 : 35;
         const minBaseFont = lanes === 1 ? 30 : lanes === 2 ? 27 : 24;
-        const baseFont = Math.max(minBaseFont, Math.min(maxFont, cardWidth * 0.34));
+        const baseFont = Math.max(minBaseFont, Math.min(maxFont, card.width * 0.34));
         const minFont = lanes === 1 ? 18 : lanes === 2 ? 16 : 14;
         const visibleCharacters = Array.from(cleanPrompt.replace(/\s+/g, "")).length;
         textLayout = visibleCharacters <= 15
-          ? this.layoutCanvasSingleLine(cleanPrompt, textMaxWidth, cardHeight - 18, baseFont, Math.max(12, minFont - 2))
-          : this.layoutCanvasText(cleanPrompt, textMaxWidth, cardHeight - 18, baseFont, maxLines, minFont);
+          ? this.layoutCanvasSingleLine(cleanPrompt, textMaxWidth, card.height - 18, baseFont, Math.max(12, minFont - 2))
+          : this.layoutCanvasText(cleanPrompt, textMaxWidth, card.height - 18, baseFont, maxLines, minFont);
         lane.textLayoutKey = layoutKey;
         lane.textLayout = textLayout;
       }
       this.ctx.fillStyle = alphaCardText;
-      this.setCanvasFont(textLayout.size);
+      const textSize = Math.max(10, Math.round(textLayout.size * scale));
+      const lineHeight = textLayout.lineHeight * scale;
+      this.setCanvasFont(textSize);
       this.ctx.textAlign = "center";
       this.ctx.textBaseline = "middle";
-      const textTop = y + cardHeight / 2 - (textLayout.lineHeight * textLayout.lines.length) / 2;
+      const textTop = y + cardHeight / 2 - (lineHeight * textLayout.lines.length) / 2;
       for (let i = 0; i < textLayout.lines.length; i += 1) {
-        this.ctx.fillText(textLayout.lines[i], x + cardWidth / 2, textTop + textLayout.lineHeight * (i + 0.5) + 1);
+        this.ctx.fillText(textLayout.lines[i], x + cardWidth / 2, textTop + lineHeight * (i + 0.5) + 1);
       }
       this.ctx.restore();
     }
@@ -3667,7 +3683,7 @@ export class VocabSprintGame {
         this.ctx.fillStyle = effect.color;
         this.ctx.strokeStyle = effect.color;
         this.ctx.shadowColor = effect.color;
-        this.ctx.shadowBlur = effect.shape === "spark" ? 12 : 8;
+        this.ctx.shadowBlur = (effect.shape === "spark" ? 12 : 8) * alpha;
         if (effect.shape === "spark") {
           this.ctx.lineWidth = Math.max(1.1, radius * 0.48);
           this.ctx.beginPath();
@@ -3702,7 +3718,7 @@ export class VocabSprintGame {
         this.ctx.strokeStyle = effect.color;
         this.ctx.lineWidth = Math.max(1, 3.2 * alpha);
         this.ctx.shadowColor = effect.color;
-        this.ctx.shadowBlur = 10;
+        this.ctx.shadowBlur = 10 * alpha;
         this.ctx.beginPath();
         this.ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
         this.ctx.stroke();
@@ -3711,13 +3727,15 @@ export class VocabSprintGame {
         const progress = 1 - alpha;
         const scale = 0.88 + Math.sin(Math.min(1, progress * 1.2) * Math.PI) * 0.38;
         const lanes = this.activeLaneCount();
-        const cardWidth = Math.min(laneWidth - 14, lanes === 1 ? 460 : lanes === 2 ? 390 : 340) * scale;
-        const cardHeight = (lanes === 1 ? 112 : lanes === 2 ? 100 : 92) * scale;
+        const baseCardWidth = Math.min(laneWidth - 14, lanes === 1 ? 460 : lanes === 2 ? 390 : 340);
+        const baseCardHeight = lanes === 1 ? 112 : lanes === 2 ? 100 : 92;
+        const cardWidth = baseCardWidth * scale;
+        const cardHeight = baseCardHeight * scale;
         const x = laneCenter - cardWidth / 2;
         const y = effect.y - cardHeight / 2;
 
         this.ctx.shadowColor = "rgba(240, 206, 108, 0.58)";
-        this.ctx.shadowBlur = 22;
+        this.ctx.shadowBlur = 22 * alpha;
         this.roundRect(x, y, cardWidth, cardHeight, 10);
         this.ctx.fillStyle = revealBg;
         this.ctx.fill();
@@ -3727,14 +3745,21 @@ export class VocabSprintGame {
         this.ctx.stroke();
 
         this.ctx.fillStyle = gold;
-        const maxLines = cardWidth < 150 ? 3 : 2;
-        const textLayout = this.layoutCanvasText(effect.text, cardWidth - 20, cardHeight - 18, Math.round(44 * scale), maxLines, 12);
-        this.setCanvasFont(textLayout.size);
+        const maxLines = baseCardWidth * 0.88 < 150 ? 3 : 2;
+        const layoutKey = `${effect.text}|${Math.round(baseCardWidth)}|${Math.round(baseCardHeight)}|${maxLines}`;
+        if (effect.textLayoutKey !== layoutKey) {
+          effect.textLayoutKey = layoutKey;
+          effect.textLayout = this.layoutCanvasText(effect.text, baseCardWidth - 20, baseCardHeight - 18, 44, maxLines, 12);
+        }
+        const textLayout = effect.textLayout;
+        const textSize = Math.max(12, Math.round(textLayout.size * scale));
+        const lineHeight = textLayout.lineHeight * scale;
+        this.setCanvasFont(textSize);
         this.ctx.textAlign = "center";
         this.ctx.textBaseline = "middle";
-        const textTop = effect.y - (textLayout.lineHeight * textLayout.lines.length) / 2;
+        const textTop = effect.y - (lineHeight * textLayout.lines.length) / 2;
         for (let i = 0; i < textLayout.lines.length; i += 1) {
-          this.ctx.fillText(textLayout.lines[i], laneCenter, textTop + textLayout.lineHeight * (i + 0.5) + 1);
+          this.ctx.fillText(textLayout.lines[i], laneCenter, textTop + lineHeight * (i + 0.5) + 1);
         }
       } else {
         const laneCenter = effect.lane * laneWidth + laneWidth / 2;
@@ -3743,7 +3768,7 @@ export class VocabSprintGame {
         this.ctx.textAlign = "center";
         this.ctx.textBaseline = "middle";
         this.ctx.shadowColor = effect.color;
-        this.ctx.shadowBlur = 8;
+        this.ctx.shadowBlur = 8 * alpha;
         this.ctx.fillText(effect.text, laneCenter, effect.y);
       }
       this.ctx.restore();
