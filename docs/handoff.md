@@ -31,9 +31,9 @@ MyShortcuts App Gallery 配布用の単体HTML:
 
 - 本番URL: `https://wordrush.myshortcuts.workers.dev/`
 - Cloudflare Workers Assets 設定: `Word-Rush\wrangler.jsonc`
-- 直近の本番デプロイ Version ID: `bc06fbf5-633e-418d-8d6a-3720a176f7e5`
+- 直近の本番デプロイ Version ID: `3b783d2a-bf50-4eff-8c1a-18a7a154188b`
 - PWA化（インストールボタン、`manifest.webmanifest`、縦向き固定/ガード、横向き時自動一時停止）、ピンチズーム・文字選択抑止、ビジュアル刷新（タイトルフォント、レーン背景アニメ、カード/パーティクル演出）、効果音刷新とカウントダウン音、BGM/SFXベース音量調整、HUDリッチデザイン、Result/Paused画面の表示整理、狭幅時の回答ボタン崩れ修正、safe-area対応、スコア行の固定高/自動縮小、プレイ中だけ描画ループを回す軽量化、iPhone PWAトップバー調整、BGMフェードアウト安定化、lookup iframe Closeボタン強調、結果リストの正誤回数/リンク間隔調整、結果ツールチップの長押し/固定表示対応、`Music-2.mp3` 差し替えなどを含む最新ローカル変更は本番へデプロイ済み、GitHubにもpush済み（`main` ブランチ）。
-- 最新ローカル `cache-manifest.json` version は `0be7464065ab486f`。
+- 最新ローカル `cache-manifest.json` version は `c4948e1dc2fc9b0c`。
 
 ## 最近の主な実装
 

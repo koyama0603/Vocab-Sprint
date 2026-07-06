@@ -2469,6 +2469,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
 .word-list-modal {
   z-index: 184;
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
 }
 
 .return-confirm-modal.hidden,
@@ -3736,12 +3737,12 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   }
 
   .word-list-modal {
-    padding: 10px;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
   }
 
   .word-list-window {
     width: 100%;
-    max-height: calc(100svh - 20px);
+    max-height: calc(100svh - max(8px, env(safe-area-inset-top)) - max(8px, env(safe-area-inset-bottom)));
     padding: 10px;
     gap: 9px;
   }
