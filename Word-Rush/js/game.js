@@ -28,7 +28,7 @@ const ANSWER_REVEAL_TIME = 1.12;
 const REVIEW_TOOLTIP_LONG_PRESS_MS = 520;
 const REVIEW_TOOLTIP_TOUCH_MOVE_CANCEL = 10;
 const WORD_AUDIO_START_DELAY_MS = 260;
-const WORD_AUDIO_START_GAP_MS = 480;
+const WORD_AUDIO_START_GAP_MS = 620;
 const WORD_AUDIO_START_MAX_ITEM_MS = 2600;
 const WORD_AUDIO_SPAWN_DELAY_MS = 90;
 const WORD_AUDIO_PREFETCH_COUNT = 6;
@@ -115,8 +115,27 @@ function parseCanvasColor(color) {
   };
 }
 
+// 色文字列のパース結果をメモ化する（毎フレームのregexパースとGC発生を避ける）。
+// キーはテーマ色＋固定リテラルのみで高々十数種だが、念のため上限で全クリアする。
+const COLOR_PARSE_CACHE = new Map();
+
+function parseCanvasColorCached(color) {
+  let parsed = COLOR_PARSE_CACHE.get(color);
+  if (parsed === undefined) {
+    if (COLOR_PARSE_CACHE.size > 256) {
+      COLOR_PARSE_CACHE.clear();
+    }
+    parsed = parseCanvasColor(color);
+    COLOR_PARSE_CACHE.set(color, parsed);
+  }
+  return parsed;
+}
+
 function colorWithAlpha(color, alpha) {
-  const parsed = parseCanvasColor(color);
+  if (alpha >= 1) {
+    return color;
+  }
+  const parsed = parseCanvasColorCached(color);
   if (!parsed) {
     return color;
   }
@@ -130,6 +149,7 @@ export class VocabSprintGame {
     this.ctx = this.canvas.getContext("2d");
     this.ui = {
       phase: document.getElementById("phaseLabel"),
+      brandTitle: document.getElementById("brandTitleText"),
       level: document.getElementById("levelSelect"),
       levelButton: document.getElementById("levelButton"),
       levelButtonLabel: document.getElementById("levelButtonLabel"),
@@ -171,6 +191,7 @@ export class VocabSprintGame {
       gameShell: document.querySelector(".game-shell"),
       answers: document.getElementById("answers"),
       loadingVeil: document.getElementById("loadingVeil"),
+      networkToast: document.getElementById("networkToast"),
       countdownGhost: document.getElementById("countdownGhost"),
       overlay: document.getElementById("overlay"),
       overlayTitle: document.getElementById("overlayTitle"),
@@ -183,12 +204,22 @@ export class VocabSprintGame {
       titleUncorrected: document.getElementById("titleUncorrectedValue"),
       titleCumulative: document.getElementById("titleCumulativeValue"),
       titleWrongBestList: document.getElementById("titleWrongBestList"),
+      wordListButton: document.getElementById("wordListButton"),
       resetLevelStats: document.getElementById("resetLevelStatsButton"),
       resetConfirmModal: document.getElementById("resetConfirmModal"),
       resetConfirmBackdrop: document.getElementById("resetConfirmBackdrop"),
       resetConfirmCopy: document.getElementById("resetConfirmCopy"),
       resetCancel: document.getElementById("resetCancelButton"),
       resetConfirm: document.getElementById("resetConfirmButton"),
+      returnConfirmModal: document.getElementById("returnConfirmModal"),
+      returnConfirmBackdrop: document.getElementById("returnConfirmBackdrop"),
+      returnContinue: document.getElementById("returnContinueButton"),
+      returnConfirm: document.getElementById("returnConfirmButton"),
+      wordListModal: document.getElementById("wordListModal"),
+      wordListBackdrop: document.getElementById("wordListBackdrop"),
+      wordListClose: document.getElementById("wordListCloseButton"),
+      wordListTitle: document.getElementById("wordListTitle"),
+      wordListTable: document.getElementById("wordListTable"),
       helpModal: document.getElementById("helpModal"),
       helpBackdrop: document.getElementById("helpBackdrop"),
       helpClose: document.getElementById("helpCloseButton"),
@@ -272,6 +303,9 @@ export class VocabSprintGame {
       soundPanelOpen: false,
       lookupOpen: false,
       resetConfirmOpen: false,
+      returnConfirmOpen: false,
+      returnConfirmPreviousPhase: "",
+      wordListOpen: false,
       helpOpen: false,
       rngSeed: 1,
       loadError: ""
@@ -297,7 +331,12 @@ export class VocabSprintGame {
     this.numberFormatter = new Intl.NumberFormat("en-US");
     this.wordStatsSaveTimer = 0;
     this.wordStatsDirty = false;
+    this.slowWordAudioUrls = new Set();
+    // カード再出現の setTimeout を管理する。放置すると一時停止/リスタートを跨いで発火し、
+    // レーン喪失や新ゲームのカード差し替えを起こすため、状態遷移時に必ずクリアする。
+    this.spawnTimers = new Set();
     this.audio = new AudioEngine(() => this.state.settings, BGM_TRACKS);
+    this.audio.setWordAudioStatusHandler((status) => this.handleWordAudioStatus(status));
   }
 
   async init() {
@@ -322,6 +361,10 @@ export class VocabSprintGame {
 
   activeLevel() {
     return LEVEL_MAP.get(this.state.levelId) || LEVEL_MAP.values().next().value;
+  }
+
+  brandTitleText(level = this.activeLevel()) {
+    return `${APP_TITLE} - ${level.label}`;
   }
 
   clampLaneCount(value) {
@@ -735,6 +778,157 @@ export class VocabSprintGame {
     this.ui.resetLevelStats?.focus();
   }
 
+  openWordListModal() {
+    if (
+      !this.ui.wordListModal
+      || !this.ui.wordListTable
+      || this.state.phase === "playing"
+      || this.state.phase === "paused"
+      || !this.state.words.length
+    ) {
+      return;
+    }
+    this.hideReviewTooltip();
+    this.setLevelMenuOpen(false);
+    this.setSoundPanelOpen(false);
+    this.renderWordListModal();
+    this.state.wordListOpen = true;
+    this.ui.wordListModal.classList.remove("hidden");
+    this.updateUi();
+    this.ui.wordListClose?.focus();
+  }
+
+  closeWordListModal() {
+    if (!this.ui.wordListModal || !this.state.wordListOpen) {
+      return;
+    }
+    this.state.wordListOpen = false;
+    this.ui.wordListModal.classList.add("hidden");
+    this.hideReviewTooltip();
+    this.updateUi();
+    this.ui.wordListButton?.focus();
+  }
+
+  renderWordListModal() {
+    const table = this.ui.wordListTable;
+    if (!table) {
+      return;
+    }
+    const level = this.activeLevel();
+    if (this.ui.wordListTitle) {
+      this.ui.wordListTitle.textContent = `${level.label} - Word List`;
+    }
+
+    const fragment = document.createDocumentFragment();
+    const header = document.createElement("div");
+    header.className = "word-list-row word-list-header-row";
+    for (const label of ["単語", "意味", "正答", "誤答"]) {
+      const cell = document.createElement("span");
+      cell.textContent = label;
+      header.appendChild(cell);
+    }
+    fragment.appendChild(header);
+
+    for (const word of this.state.words) {
+      const stats = this.wordStatFor(word);
+      const row = document.createElement("div");
+      row.className = "word-list-row";
+
+      const wordCell = document.createElement("span");
+      wordCell.className = "word-list-word";
+      const actions = document.createElement("span");
+      actions.className = "word-list-actions";
+      const wordText = document.createElement("strong");
+      wordText.textContent = word.english;
+      actions.append(this.createWordAudioButton(word), this.createWordInfoButton(word));
+      wordCell.append(actions, wordText);
+
+      const meaning = document.createElement("span");
+      meaning.className = "word-list-meaning";
+      meaning.textContent = word.japanese || "";
+
+      const correct = document.createElement("span");
+      correct.className = "word-list-count";
+      correct.textContent = this.formatNumber(stats.correct);
+
+      const incorrect = document.createElement("span");
+      incorrect.className = "word-list-count is-wrong";
+      incorrect.textContent = this.formatNumber(stats.incorrect);
+
+      row.append(wordCell, meaning, correct, incorrect);
+      fragment.appendChild(row);
+    }
+
+    table.replaceChildren(fragment);
+  }
+
+  requestReturnToTitle() {
+    if (this.state.phase === "playing" || this.state.phase === "paused") {
+      this.openReturnConfirmModal();
+      return;
+    }
+    this.returnToTitle();
+  }
+
+  openReturnConfirmModal() {
+    if (!this.ui.returnConfirmModal || this.state.returnConfirmOpen) {
+      return;
+    }
+    if (this.state.phase !== "playing" && this.state.phase !== "paused") {
+      this.returnToTitle();
+      return;
+    }
+    this.hideReviewTooltip();
+    this.setLevelMenuOpen(false);
+    this.setSoundPanelOpen(false);
+    this.state.returnConfirmPreviousPhase = this.state.phase;
+    if (this.state.phase === "playing") {
+      this.state.phase = "paused";
+      this.stopRenderLoop();
+      this.clearSpawnTimers();
+      this.audio.fadeOutBgm(650);
+      this.audio.stopWordAudio();
+      this.audio.releaseWordAudioPool();
+      this.flushWordStats();
+      this.hideNetworkToast({ clear: true });
+    }
+    this.state.returnConfirmOpen = true;
+    this.ui.returnConfirmModal.classList.remove("hidden");
+    this.updateUi();
+    this.renderAnswerButtons();
+    this.ui.returnConfirm?.focus();
+  }
+
+  closeReturnConfirmModal() {
+    if (!this.ui.returnConfirmModal || !this.state.returnConfirmOpen) {
+      return;
+    }
+    const shouldResume = this.state.returnConfirmPreviousPhase === "playing";
+    this.state.returnConfirmOpen = false;
+    this.state.returnConfirmPreviousPhase = "";
+    this.ui.returnConfirmModal.classList.add("hidden");
+    if (shouldResume && this.state.phase === "paused") {
+      this.state.phase = "playing";
+      this.state.lastTime = performance.now();
+      this.audio.startBgm(() => this.state.phase);
+      this.respawnStalledLanes();
+      this.startRenderLoop();
+    }
+    this.updateUi();
+    this.renderAnswerButtons();
+    this.ui.backButton?.focus();
+  }
+
+  confirmReturnToTitle() {
+    if (!this.state.returnConfirmOpen) {
+      return;
+    }
+    this.state.returnConfirmOpen = false;
+    this.state.returnConfirmPreviousPhase = "";
+    this.ui.returnConfirmModal?.classList.add("hidden");
+    this.returnToTitle();
+  }
+
   isStandaloneDisplay() {
     return Boolean(
       globalThis.matchMedia?.("(display-mode: standalone)")?.matches
@@ -945,6 +1139,9 @@ export class VocabSprintGame {
 
   renderLevelPicker() {
     const level = this.activeLevel();
+    if (this.ui.brandTitle) {
+      this.ui.brandTitle.textContent = this.brandTitleText(level);
+    }
     this.ui.levelButtonLabel.textContent = level.label;
     this.ui.levelButtonMeta.textContent = `${this.formatNumber(this.playCountFor(level.id))}回`;
     this.ui.levelMenu.innerHTML = "";
@@ -1149,6 +1346,10 @@ export class VocabSprintGame {
       const item = document.createElement("li");
       item.className = "title-wrong-item";
 
+      const actions = document.createElement("span");
+      actions.className = "title-wrong-actions";
+      actions.append(this.createWordAudioButton(word), this.createWordInfoButton(word));
+
       const wordText = document.createElement("span");
       wordText.className = "title-wrong-word";
       wordText.textContent = `${index + 1}. ${word.english}`;
@@ -1161,7 +1362,7 @@ export class VocabSprintGame {
       meaning.className = "title-wrong-meaning";
       meaning.textContent = word.japanese || "";
 
-      item.append(wordText, count, meaning);
+      item.append(actions, wordText, count, meaning);
       list.appendChild(item);
     });
   }
@@ -1218,6 +1419,7 @@ export class VocabSprintGame {
     const token = ++this.loadToken;
     this.audio.stopBgm();
     this.audio.stopWordAudio();
+    this.hideNetworkToast({ clear: true });
     this.state.phase = "loading";
     this.state.levelId = levelId;
     this.ui.level.value = levelId;
@@ -1523,6 +1725,44 @@ export class VocabSprintGame {
     }
   }
 
+  // 回答/ミス後のカード再出現を予約する。タイマーは Set で管理し、
+  // 一時停止・ゲーム終了・タイトル復帰・再スタート時に clearSpawnTimers で全て破棄する。
+  scheduleSpawn(laneIndex, delayMs) {
+    const timer = setTimeout(() => {
+      this.spawnTimers.delete(timer);
+      if (this.state.phase !== "playing") {
+        return;
+      }
+      this.spawnLane(laneIndex, true);
+      this.playLaneWordAudio(laneIndex, WORD_AUDIO_SPAWN_DELAY_MS);
+      this.prefetchUpcomingWordAudio();
+      this.refreshAnswerButtons();
+    }, delayMs);
+    this.spawnTimers.add(timer);
+  }
+
+  clearSpawnTimers() {
+    for (const timer of this.spawnTimers) {
+      clearTimeout(timer);
+    }
+    this.spawnTimers.clear();
+  }
+
+  // 一時停止中に spawn タイマーを破棄した場合、locked のまま残ったレーンを再開時に補充する。
+  respawnStalledLanes() {
+    let respawned = false;
+    for (let i = 0; i < this.state.lanes.length; i += 1) {
+      const lane = this.state.lanes[i];
+      if (lane && lane.locked) {
+        this.spawnLane(i, true);
+        respawned = true;
+      }
+    }
+    if (respawned) {
+      this.refreshAnswerButtons();
+    }
+  }
+
   makeLanes() {
     this.state.lanes = [];
     if (!this.state.words.length) {
@@ -1563,6 +1803,7 @@ export class VocabSprintGame {
       existing.wrong += reason === "wrong" ? 1 : 0;
       existing.miss += reason === "miss" ? 1 : 0;
       existing.reason = existing.wrong || existing.miss ? reason : "correct";
+      existing.unanswered = existing.unanswered || 0;
       existing.lastPicked = picked;
       existing.detail = existing.detail || word.detail;
       existing.sample = existing.sample || word.sample;
@@ -1581,8 +1822,49 @@ export class VocabSprintGame {
       count: 1,
       correct: reason === "correct" ? 1 : 0,
       wrong: reason === "wrong" ? 1 : 0,
-      miss: reason === "miss" ? 1 : 0
+      miss: reason === "miss" ? 1 : 0,
+      unanswered: 0
     });
+  }
+
+  recordUnansweredReview(word) {
+    const reviewKey = this.wordStatKey(word);
+    const existing = this.state.review.get(reviewKey);
+    if (existing) {
+      existing.count += 1;
+      existing.unanswered = (existing.unanswered || 0) + 1;
+      if (!existing.wrong && !existing.miss) {
+        existing.reason = "unanswered";
+      }
+      existing.lastPicked = null;
+      existing.detail = existing.detail || word.detail;
+      existing.sample = existing.sample || word.sample;
+      existing.sampleJpn = existing.sampleJpn || word.sampleJpn;
+      return;
+    }
+    this.state.review.set(reviewKey, {
+      id: word.id,
+      english: word.english,
+      japanese: word.japanese,
+      detail: word.detail,
+      sample: word.sample,
+      sampleJpn: word.sampleJpn,
+      lastPicked: null,
+      reason: "unanswered",
+      count: 1,
+      correct: 0,
+      wrong: 0,
+      miss: 0,
+      unanswered: 1
+    });
+  }
+
+  recordUnansweredLanes() {
+    for (const lane of this.state.lanes) {
+      if (lane?.word && !lane.locked) {
+        this.recordUnansweredReview(lane.word);
+      }
+    }
   }
 
   showAnswerReveal(laneIndex, lane) {
@@ -1607,6 +1889,40 @@ export class VocabSprintGame {
       .map((word) => this.wordAudioUrlFor(word))
       .filter(Boolean);
     this.audio.preloadWordAudio(urls, options);
+  }
+
+  handleWordAudioStatus(status) {
+    const url = status?.url;
+    if (!url) {
+      return;
+    }
+    if (status.type === "slow") {
+      if (this.state.phase !== "playing") {
+        return;
+      }
+      this.slowWordAudioUrls.add(url);
+      this.syncNetworkToast();
+      return;
+    }
+    if (status.type === "ready" || status.type === "error") {
+      this.slowWordAudioUrls.delete(url);
+      this.syncNetworkToast();
+    }
+  }
+
+  syncNetworkToast() {
+    if (!this.ui.networkToast) {
+      return;
+    }
+    const shouldShow = this.state.phase === "playing" && this.slowWordAudioUrls.size > 0;
+    this.ui.networkToast.classList.toggle("hidden", !shouldShow);
+  }
+
+  hideNetworkToast(options = {}) {
+    if (options.clear) {
+      this.slowWordAudioUrls.clear();
+    }
+    this.syncNetworkToast();
   }
 
   prefetchUpcomingWordAudio() {
@@ -1792,9 +2108,16 @@ export class VocabSprintGame {
     const reviewItems = Array.from(this.state.review.values())
       .map((item, index) => ({ item, index }))
       .sort((a, b) => {
-        const aNeedsReview = a.item.wrong || a.item.miss ? 1 : 0;
-        const bNeedsReview = b.item.wrong || b.item.miss ? 1 : 0;
-        return bNeedsReview - aNeedsReview || a.index - b.index;
+        const rank = (entry) => {
+          if (entry.item.wrong || entry.item.miss) {
+            return 0;
+          }
+          if (entry.item.unanswered) {
+            return 1;
+          }
+          return 2;
+        };
+        return rank(a) - rank(b) || a.index - b.index;
       })
       .map((entry) => entry.item);
 
@@ -1803,6 +2126,8 @@ export class VocabSprintGame {
       row.className = "review-item";
       if (item.wrong || item.miss) {
         row.classList.add("needs-review");
+      } else if (item.unanswered) {
+        row.classList.add("is-unanswered");
       }
       const detailText = this.reviewDetailText(item);
       row.dataset.tooltipTitle = `${item.english} ： ${item.japanese}`;
@@ -1845,6 +2170,9 @@ export class VocabSprintGame {
           parts.push("Miss");
         }
         statusLabel.textContent = parts.join(" / ");
+      } else if (item.unanswered) {
+        status.classList.add("is-unanswered");
+        statusLabel.textContent = "-";
       } else {
         status.classList.add("is-ok");
         statusLabel.textContent = "OK";
@@ -1912,9 +2240,21 @@ export class VocabSprintGame {
     sample.className = "review-tooltip-sample";
     const sampleJpn = document.createElement("div");
     sampleJpn.className = "review-tooltip-sample-jpn";
-    root.append(title, detail, sample, sampleJpn);
+    const close = document.createElement("button");
+    close.className = "review-tooltip-close hidden";
+    close.type = "button";
+    close.textContent = "Close";
+    close.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    close.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.hideReviewTooltip();
+    });
+    root.append(title, detail, sample, sampleJpn, close);
     document.body.appendChild(root);
-    return { root, title, detail, sample, sampleJpn };
+    return { root, title, detail, sample, sampleJpn, close };
   }
 
   handleReviewPointerEnter(row, event) {
@@ -1941,7 +2281,7 @@ export class VocabSprintGame {
         return;
       }
       this.reviewTooltipPointer.shown = true;
-      this.showReviewTooltip(row, event, { fixedMobile: true });
+      this.showReviewTooltip(row, event, { fixedMobile: true, showClose: true });
     }, REVIEW_TOOLTIP_LONG_PRESS_MS);
   }
 
@@ -2000,18 +2340,33 @@ export class VocabSprintGame {
     if (!this.reviewTooltip || !row.dataset.tooltipTitle) {
       return;
     }
-    this.reviewTooltip.title.textContent = row.dataset.tooltipTitle;
-    this.reviewTooltip.detail.textContent = row.dataset.tooltipDetail || "解説なし";
-    this.reviewTooltip.sample.textContent = row.dataset.tooltipSample || "";
-    this.reviewTooltip.sample.classList.toggle("hidden", !row.dataset.tooltipSample);
-    this.reviewTooltip.sampleJpn.textContent = row.dataset.tooltipSampleJpn || "";
-    this.reviewTooltip.sampleJpn.classList.toggle("hidden", !row.dataset.tooltipSampleJpn);
+    this.showReviewTooltipData({
+      title: row.dataset.tooltipTitle,
+      detail: row.dataset.tooltipDetail || "解説なし",
+      sample: row.dataset.tooltipSample || "",
+      sampleJpn: row.dataset.tooltipSampleJpn || ""
+    }, event, options);
+  }
+
+  showReviewTooltipData(data, event, options = {}) {
+    if (!this.reviewTooltip || !data.title) {
+      return;
+    }
+    const showClose = Boolean(options.showClose || options.fixedMobile);
+    this.reviewTooltip.title.textContent = data.title;
+    this.reviewTooltip.detail.textContent = data.detail || "解説なし";
+    this.reviewTooltip.sample.textContent = data.sample || "";
+    this.reviewTooltip.sample.classList.toggle("hidden", !data.sample);
+    this.reviewTooltip.sampleJpn.textContent = data.sampleJpn || "";
+    this.reviewTooltip.sampleJpn.classList.toggle("hidden", !data.sampleJpn);
+    this.reviewTooltip.close?.classList.toggle("hidden", !showClose);
+    this.reviewTooltip.root.classList.toggle("has-close", showClose);
     this.reviewTooltip.root.classList.toggle("is-mobile-fixed", Boolean(options.fixedMobile));
     this.reviewTooltip.root.classList.remove("hidden");
     this.reviewTooltip.root.setAttribute("aria-hidden", "false");
     if (options.fixedMobile) {
       this.positionFixedReviewTooltip();
-    } else {
+    } else if (event) {
       this.positionReviewTooltip(event);
     }
   }
@@ -2059,7 +2414,8 @@ export class VocabSprintGame {
     this.clearReviewTooltipPress();
     this.reviewTooltipPointer = null;
     this.reviewTooltip.root.classList.add("hidden");
-    this.reviewTooltip.root.classList.remove("is-mobile-fixed");
+    this.reviewTooltip.root.classList.remove("is-mobile-fixed", "has-close");
+    this.reviewTooltip.close?.classList.add("hidden");
     this.reviewTooltip.root.setAttribute("aria-hidden", "true");
     this.reviewTooltip.root.style.left = "";
     this.reviewTooltip.root.style.top = "";
@@ -2121,6 +2477,40 @@ export class VocabSprintGame {
       this.playReviewWordAudio(item);
     });
     return button;
+  }
+
+  createWordInfoButton(item) {
+    const button = document.createElement("button");
+    button.className = "word-info-button";
+    button.type = "button";
+    button.textContent = "i";
+    button.title = `${item.english} の詳細`;
+    button.setAttribute("aria-label", `${item.english} の詳細`);
+    button.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.showWordTooltip(item, event);
+    });
+    return button;
+  }
+
+  wordTooltipData(item) {
+    return {
+      title: `${item.english} ： ${item.japanese || ""}`,
+      detail: item.detail || "解説なし",
+      sample: item.sample || "",
+      sampleJpn: item.sampleJpn || ""
+    };
+  }
+
+  showWordTooltip(item, event) {
+    this.showReviewTooltipData(this.wordTooltipData(item), event, {
+      fixedMobile: this.isMobileReviewPointer(event),
+      showClose: true
+    });
   }
 
   playReviewWordAudio(item) {
@@ -2535,6 +2925,10 @@ export class VocabSprintGame {
     }
     this.audio.init();
     this.audio.stopBgmPreview();
+    // 前ゲームの残タイマー・再生中の単語音声を持ち越さない。
+    this.clearSpawnTimers();
+    this.audio.stopWordAudio();
+    this.hideNetworkToast({ clear: true });
     this.state.rngSeed = this.createSeed();
     this.state.phase = "playing";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
@@ -2575,9 +2969,13 @@ export class VocabSprintGame {
     if (this.state.phase === "over") {
       return;
     }
+    this.recordUnansweredLanes();
     this.state.phase = "over";
+    this.hideNetworkToast({ clear: true });
+    this.clearSpawnTimers();
     this.audio.fadeOutBgm(1800);
     this.audio.stopWordAudio();
+    this.audio.releaseWordAudioPool();
     this.flushWordStats();
     this.saveBest();
     this.showResultOverlay({ fadeIn: true });
@@ -2588,9 +2986,18 @@ export class VocabSprintGame {
   }
 
   returnToTitle() {
+    this.clearSpawnTimers();
     this.audio.fadeOutBgm(650);
     this.audio.stopWordAudio();
+    this.audio.releaseWordAudioPool();
     this.flushWordStats();
+    this.hideNetworkToast({ clear: true });
+    this.hideReviewTooltip();
+    this.state.returnConfirmOpen = false;
+    this.state.returnConfirmPreviousPhase = "";
+    this.state.wordListOpen = false;
+    this.ui.returnConfirmModal?.classList.add("hidden");
+    this.ui.wordListModal?.classList.add("hidden");
     this.state.phase = this.state.words.length ? "ready" : "loading";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
     this.state.gameModeId = this.selectedGameModeId();
@@ -2623,9 +3030,13 @@ export class VocabSprintGame {
     if (this.state.phase === "playing") {
       this.state.phase = "paused";
       this.stopRenderLoop();
+      // 長時間の一時停止に備え、タイマー・単語音声・プール済みAudio要素をすべて解放する。
+      this.clearSpawnTimers();
       this.audio.fadeOutBgm(650);
       this.audio.stopWordAudio();
+      this.audio.releaseWordAudioPool();
       this.flushWordStats();
+      this.hideNetworkToast({ clear: true });
       this.showOverlay("Paused", "", "Resume", {
         showTitleDetails: true,
         obscureBoard: true,
@@ -2637,6 +3048,8 @@ export class VocabSprintGame {
       this.state.lastTime = performance.now();
       this.hideOverlay();
       this.audio.startBgm(() => this.state.phase);
+      // 一時停止時に破棄した spawn タイマーの分、消えたままのレーンを補充する。
+      this.respawnStalledLanes();
       this.startRenderLoop();
     }
     this.updateUi();
@@ -2707,14 +3120,7 @@ export class VocabSprintGame {
       this.state.effects.push({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: this.colors.green });
       this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: this.colors.gold });
       this.addFeed(`${promptText} = ${correctAnswer} / ${this.formatTimeDelta(timeBonus)}`);
-      setTimeout(() => {
-        if (this.state.phase === "playing") {
-          this.spawnLane(laneIndex, true);
-          this.playLaneWordAudio(laneIndex, WORD_AUDIO_SPAWN_DELAY_MS);
-          this.prefetchUpcomingWordAudio();
-          this.refreshAnswerButtons();
-        }
-      }, CARD_FADE_OUT_TIME * 1000);
+      this.scheduleSpawn(laneIndex, CARD_FADE_OUT_TIME * 1000);
     } else {
       lane.locked = true;
       this.state.wrong += 1;
@@ -2739,14 +3145,7 @@ export class VocabSprintGame {
         this.refreshAnswerButtons();
         return;
       }
-      setTimeout(() => {
-        if (this.state.phase === "playing") {
-          this.spawnLane(laneIndex, true);
-          this.playLaneWordAudio(laneIndex, WORD_AUDIO_SPAWN_DELAY_MS);
-          this.prefetchUpcomingWordAudio();
-          this.refreshAnswerButtons();
-        }
-      }, (CARD_FADE_OUT_TIME + 0.08) * 1000);
+      this.scheduleSpawn(laneIndex, (CARD_FADE_OUT_TIME + 0.08) * 1000);
     }
     this.updateUi();
     this.refreshAnswerButtons();
@@ -2777,14 +3176,7 @@ export class VocabSprintGame {
       this.renderAnswerButtons();
       return;
     }
-    setTimeout(() => {
-      if (this.state.phase === "playing" && this.state.lanes[laneIndex] === lane) {
-        this.spawnLane(laneIndex, true);
-        this.playLaneWordAudio(laneIndex, WORD_AUDIO_SPAWN_DELAY_MS);
-        this.prefetchUpcomingWordAudio();
-        this.refreshAnswerButtons();
-      }
-    }, ANSWER_REVEAL_TIME * 1000);
+    this.scheduleSpawn(laneIndex, ANSWER_REVEAL_TIME * 1000);
     this.updateUi();
     this.renderAnswerButtons();
   }
@@ -2883,7 +3275,8 @@ export class VocabSprintGame {
       { color: flow.coolSoft, thickness: 0.3, speed: 12, freq: 2.8, sway: 0.35, seed: 139.4 + laneIndex * 53.7 }
     ];
 
-    ctx.filter = "blur(0.65px)";
+    // 注意: ここで ctx.filter = "blur(...)" は使わないこと。
+    // iOS Safari では Canvas filter が極端に重く、リークの報告もある（発熱・進行性劣化の原因になる）。
     for (const ribbon of ribbons) {
       const band = height * ribbon.thickness;
       const travel = height + band * 2;
@@ -2912,7 +3305,6 @@ export class VocabSprintGame {
       }
     }
 
-    ctx.filter = "none";
     const gx = x + laneWidth * (0.5 + Math.sin(t * 0.33 + laneIndex * 1.9) * 0.42);
     const gy = height * (0.5 + Math.cos(t * 0.26 + laneIndex * 1.3) * 0.44);
     const gr = Math.max(laneWidth * 0.9, height * 0.4);
@@ -3229,17 +3621,26 @@ export class VocabSprintGame {
       this.ctx.lineTo(x + cardWidth - radius, y + 1.5);
       this.ctx.stroke();
 
-      const textMaxWidth = cardWidth - (laneWidth < 130 ? 12 : 24);
-      const maxLines = cardWidth < 118 ? 3 : 2;
-      const maxFont = lanes === 1 ? 46 : lanes === 2 ? 40 : 35;
-      const minBaseFont = lanes === 1 ? 30 : lanes === 2 ? 27 : 24;
-      const baseFont = Math.max(minBaseFont, Math.min(maxFont, cardWidth * 0.34));
-      const minFont = lanes === 1 ? 18 : lanes === 2 ? 16 : 14;
+      // テキストレイアウト（measureTextのループ）は高コストなので、
+      // 文言とカード幅が変わらない限りレーン単位でキャッシュして毎フレームの再計算を避ける。
+      // カード幅はフェード中の scale で微変動するため 2px 単位に丸めてキーにする。
       const cleanPrompt = this.promptTextFor(lane.word).replace(/\s+/g, " ");
-      const visibleCharacters = Array.from(cleanPrompt.replace(/\s+/g, "")).length;
-      const textLayout = visibleCharacters <= 15
-        ? this.layoutCanvasSingleLine(cleanPrompt, textMaxWidth, cardHeight - 18, baseFont, Math.max(12, minFont - 2))
-        : this.layoutCanvasText(cleanPrompt, textMaxWidth, cardHeight - 18, baseFont, maxLines, minFont);
+      const layoutKey = `${cleanPrompt}|${Math.round(cardWidth / 2) * 2}|${lanes}`;
+      let textLayout = lane.textLayoutKey === layoutKey ? lane.textLayout : null;
+      if (!textLayout) {
+        const textMaxWidth = cardWidth - (laneWidth < 130 ? 12 : 24);
+        const maxLines = cardWidth < 118 ? 3 : 2;
+        const maxFont = lanes === 1 ? 46 : lanes === 2 ? 40 : 35;
+        const minBaseFont = lanes === 1 ? 30 : lanes === 2 ? 27 : 24;
+        const baseFont = Math.max(minBaseFont, Math.min(maxFont, cardWidth * 0.34));
+        const minFont = lanes === 1 ? 18 : lanes === 2 ? 16 : 14;
+        const visibleCharacters = Array.from(cleanPrompt.replace(/\s+/g, "")).length;
+        textLayout = visibleCharacters <= 15
+          ? this.layoutCanvasSingleLine(cleanPrompt, textMaxWidth, cardHeight - 18, baseFont, Math.max(12, minFont - 2))
+          : this.layoutCanvasText(cleanPrompt, textMaxWidth, cardHeight - 18, baseFont, maxLines, minFont);
+        lane.textLayoutKey = layoutKey;
+        lane.textLayout = textLayout;
+      }
       this.ctx.fillStyle = alphaCardText;
       this.setCanvasFont(textLayout.size);
       this.ctx.textAlign = "center";
@@ -3470,13 +3871,15 @@ export class VocabSprintGame {
     const isPlaying = this.state.phase === "playing";
     const isLookupOpen = Boolean(this.state.lookupOpen);
     const isResetConfirmOpen = Boolean(this.state.resetConfirmOpen);
+    const isReturnConfirmOpen = Boolean(this.state.returnConfirmOpen);
+    const isWordListOpen = Boolean(this.state.wordListOpen);
     const isHelpOpen = Boolean(this.state.helpOpen);
-    const isModalOpen = isLookupOpen || isResetConfirmOpen || isHelpOpen;
+    const isModalOpen = isLookupOpen || isResetConfirmOpen || isReturnConfirmOpen || isWordListOpen || isHelpOpen;
     if (isModalOpen && this.state.soundPanelOpen) {
       this.setSoundPanelOpen(false);
     }
     const canPause = this.state.phase === "playing" || this.state.phase === "paused";
-    this.ui.pauseButton.disabled = !canPause;
+    this.ui.pauseButton.disabled = !canPause || isModalOpen;
     this.ui.pauseButton.title = this.state.phase === "paused" ? "再開" : "一時停止";
     this.ui.pauseButton.setAttribute("aria-label", this.ui.pauseButton.title);
     this.ui.pauseIcon.classList.toggle("hidden", this.state.phase === "paused");
@@ -3497,27 +3900,31 @@ export class VocabSprintGame {
       this.ui.titleHelpButton.classList.toggle("hidden", this.state.phase !== "ready");
       this.ui.titleHelpButton.disabled = isBusy || isModalOpen;
     }
-    this.ui.level.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isResetConfirmOpen;
+    this.ui.level.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isModalOpen;
     this.ui.levelButton.disabled = this.ui.level.disabled;
-    this.ui.laneCount.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isResetConfirmOpen;
+    this.ui.laneCount.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isModalOpen;
     for (const input of this.ui.quizDirectionInputs || []) {
-      input.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isResetConfirmOpen;
+      input.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isModalOpen;
     }
     for (const input of this.ui.gameModeInputs || []) {
-      input.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isResetConfirmOpen;
+      input.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isModalOpen;
     }
     if (this.ui.survival) {
-      this.ui.survival.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isResetConfirmOpen;
+      this.ui.survival.disabled = this.state.phase === "playing" || this.state.phase === "paused" || isBusy || isModalOpen;
       this.ui.survival.checked = Boolean(this.state.survivalEnabled);
     }
     if (this.ui.resetLevelStats) {
-      this.ui.resetLevelStats.disabled = isBusy || !this.state.words.length || this.state.phase === "playing" || this.state.phase === "paused" || isResetConfirmOpen;
+      this.ui.resetLevelStats.disabled = isBusy || !this.state.words.length || this.state.phase === "playing" || this.state.phase === "paused" || isModalOpen;
+    }
+    if (this.ui.wordListButton) {
+      this.ui.wordListButton.disabled = isBusy || !this.state.words.length || this.state.phase === "playing" || this.state.phase === "paused" || isModalOpen;
     }
     this.syncQuizDirectionInputs();
     this.syncGameModeInputs();
     this.ui.backButton.disabled = isBusy || this.state.phase === "ready" || this.state.phase === "over" || isModalOpen;
-    this.ui.startButton.disabled = isBusy || isError || !this.state.words.length || isResetConfirmOpen;
+    this.ui.startButton.disabled = isBusy || isError || !this.state.words.length || isModalOpen;
     this.updateTitleDetails();
+    this.syncNetworkToast();
   }
 
   // プレイ中だけ描画ループを回す。二重起動しないようフラグで管理する。
@@ -3594,8 +4001,9 @@ export class VocabSprintGame {
     this.ui.overlayBackButton.addEventListener("click", () => this.returnToTitle());
     this.ui.resultCloseButton?.addEventListener("click", () => this.returnToTitle());
     this.ui.titleHelpButton?.addEventListener("click", () => this.openHelpModal());
-    this.ui.backButton.addEventListener("click", () => this.returnToTitle());
+    this.ui.backButton.addEventListener("click", () => this.requestReturnToTitle());
     this.ui.levelButton.addEventListener("click", () => this.toggleLevelMenu());
+    this.ui.wordListButton?.addEventListener("click", () => this.openWordListModal());
     this.ui.soundButton.addEventListener("click", () => this.toggleSoundPanel());
     this.ui.soundPanelClose?.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -3612,6 +4020,11 @@ export class VocabSprintGame {
     this.ui.resetCancel?.addEventListener("click", () => this.closeResetConfirmModal());
     this.ui.resetConfirm?.addEventListener("click", () => this.confirmResetSelectedLevelStats());
     this.ui.resetConfirmBackdrop?.addEventListener("click", () => this.closeResetConfirmModal());
+    this.ui.returnContinue?.addEventListener("click", () => this.closeReturnConfirmModal());
+    this.ui.returnConfirm?.addEventListener("click", () => this.confirmReturnToTitle());
+    this.ui.returnConfirmBackdrop?.addEventListener("click", () => this.closeReturnConfirmModal());
+    this.ui.wordListClose?.addEventListener("click", () => this.closeWordListModal());
+    this.ui.wordListBackdrop?.addEventListener("click", () => this.closeWordListModal());
     this.ui.helpClose?.addEventListener("click", () => this.closeHelpModal());
     this.ui.helpBackdrop?.addEventListener("click", () => this.closeHelpModal());
     this.ui.lookupClose?.addEventListener("click", () => this.closeLookupModal());
@@ -3726,6 +4139,7 @@ export class VocabSprintGame {
       this.positionLevelMenu();
       this.hideReviewTooltip();
     });
+    this.ui.wordListTable?.addEventListener("scroll", () => this.hideReviewTooltip());
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") {
         this.pauseForHiddenPage();
@@ -3752,6 +4166,20 @@ export class VocabSprintGame {
         if (key === "escape") {
           event.preventDefault();
           this.closeResetConfirmModal();
+        }
+        return;
+      }
+      if (this.state.returnConfirmOpen) {
+        if (key === "escape") {
+          event.preventDefault();
+          this.closeReturnConfirmModal();
+        }
+        return;
+      }
+      if (this.state.wordListOpen) {
+        if (key === "escape") {
+          event.preventDefault();
+          this.closeWordListModal();
         }
         return;
       }

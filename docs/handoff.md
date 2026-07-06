@@ -31,9 +31,9 @@ MyShortcuts App Gallery 配布用の単体HTML:
 
 - 本番URL: `https://wordrush.myshortcuts.workers.dev/`
 - Cloudflare Workers Assets 設定: `Word-Rush\wrangler.jsonc`
-- 直近の本番デプロイ Version ID: `f4ccbe72-43c9-452c-a792-507aa9bb7456`
+- 直近の本番デプロイ Version ID: `bc06fbf5-633e-418d-8d6a-3720a176f7e5`
 - PWA化（インストールボタン、`manifest.webmanifest`、縦向き固定/ガード、横向き時自動一時停止）、ピンチズーム・文字選択抑止、ビジュアル刷新（タイトルフォント、レーン背景アニメ、カード/パーティクル演出）、効果音刷新とカウントダウン音、BGM/SFXベース音量調整、HUDリッチデザイン、Result/Paused画面の表示整理、狭幅時の回答ボタン崩れ修正、safe-area対応、スコア行の固定高/自動縮小、プレイ中だけ描画ループを回す軽量化、iPhone PWAトップバー調整、BGMフェードアウト安定化、lookup iframe Closeボタン強調、結果リストの正誤回数/リンク間隔調整、結果ツールチップの長押し/固定表示対応、`Music-2.mp3` 差し替えなどを含む最新ローカル変更は本番へデプロイ済み、GitHubにもpush済み（`main` ブランチ）。
-- 最新ローカル `cache-manifest.json` version は `1bfdc8c7e11c1bc7`。
+- 最新ローカル `cache-manifest.json` version は `0be7464065ab486f`。
 
 ## 最近の主な実装
 
@@ -217,3 +217,41 @@ npx --yes wrangler@latest deploy
 - `levels.config.js` の `id` を変更すると保存済みプレイ回数、ハイスコア、単語別学習記録との対応が崩れる。
 - CSVの `id` を変更すると単語別学習記録がリセット扱いになる。
 - UI変更後はスマホ幅、特に 360px 前後で結果画面と訳語選択肢を確認する。
+
+## パフォーマンス劣化で気を付けるべき点（開発時の必読）
+
+スマホ（特にiPhone）で「プレイを続けると遅くなる・熱くなる」原因になった実績のあるパターン。機能追加時は以下を守ること。
+
+### 毎フレーム実行される場所（gameLoop → updateGame / drawBoard / updateHud）
+
+- `getComputedStyle` / `cssVar()` をフレーム内で呼ばない。テーマ色は `refreshThemeColors()` が `this.colors` にキャッシュ済み。色が必要なら `this.colors.*` を使う（テーマ切替時に自動更新される）。
+- `measureText` を伴うテキストレイアウト（`layoutCanvasText` / `layoutCanvasSingleLine`）をフレームごとに呼ばない。カード文言のレイアウトは `lane.textLayoutKey` / `lane.textLayout` にキャッシュしている。新しい canvas 文字描画を足す場合も同様にキャッシュすること。
+- 色文字列の加工（`colorWithAlpha`）は `alpha >= 1` なら元文字列を返し、パース結果は `COLOR_PARSE_CACHE` にメモ化している。フレーム内で新しい色文字列を生成し続けない。
+- 全単語の走査（学習統計など）は `computeStats()` のキャッシュを使う。直接ループを足さない。無効化は `invalidateStatsCache()`。
+- `ctx.filter`（blurなど）は使用禁止。iOS SafariのCanvas filterは極端に重く、メモリリークの報告もある。うっすらしたブラーは視認できないコストの塊。
+- `ctx.shadowBlur` はモバイルで高コスト。既存の使用量（カード・パーティクル）以上に増やさない。
+- 描画ループはプレイ中のみ回す設計（`startRenderLoop` / `stopRenderLoop`）。メニュー/一時停止/結果画面で動くアニメーションを追加しない。追加するなら状態遷移時の1回描画で表現する。
+
+### Web Audio（audio.js）
+
+- `OscillatorNode` / `GainNode` / `BufferSource` は再生終了後に必ず `disconnect()` する（`onended` で切断）。接続したまま放置すると、SFXを鳴らすたびにオーディオグラフへノードが蓄積し、iOSで進行性の負荷増・発熱になる（今回の主要因の一つ）。
+- `AudioBuffer` の生成（ノイズ等）は使い回す。`this.noiseBuffer` 参照。
+- `AudioContext` はアプリ全体で1つ。増やさない。
+
+### HTMLAudioElement（単語音声・BGM）
+
+- iOSでは `<audio>` 要素1つごとにOSのデコーダ資源を掴む。同時生存数を増やさないこと。単語音声プールは `WORD_AUDIO_POOL_LIMIT`（24）で追い出し、`ended`/`error` が来ない停滞要素は `trackWordAudio` の watchdog（8秒）で強制解放する。この仕組みを迂回して `new Audio()` を直接使わない。
+- 一時停止・ゲーム終了・タイトル復帰時は `releaseWordAudioPool()` で全解放する（長時間ポーズ中に資源を掴み続けない）。必要になれば `ensureWordAudio` が作り直すので機能影響はない。
+
+### タイマー・状態のライフサイクル
+
+- ゲーム内の `setTimeout` は必ず管理下に置く。カード再出現は `scheduleSpawn()` を使い、`clearSpawnTimers()` が startGame / finishGame / returnToTitle / pauseGame で呼ばれる。生の `setTimeout` を answer/miss 系に書かない（一時停止やリスタートを跨いで発火し、レーン喪失・新ゲームのカード差し替え・音声の誤再生を起こした実績あり）。
+- 一時停止からの再開時は `respawnStalledLanes()` が locked のまま止まったレーンを補充する。ポーズ中に消えるリソースを増やしたら、再開時の復旧もセットで実装する。
+- ゲームごとにリセットすべき状態（effects / lanes / review / recent / feedback / countdownSecond / spawnTimers / 単語音声）は startGame と returnToTitle の両方で初期化されているか確認する。
+- localStorage への保存は `scheduleWordStatsSave()`（debounce）を使い、pause/finish/visibilitychange で `flushWordStats()`。回答のたびに同期書き込みしない。
+
+### 動作確認のしかた
+
+- 長めのプレイ（数ゲーム連続）→ 一時停止を挟む → 再開、の流れでフレームレートが落ちないこと。
+- Safariの開発メニュー（実機接続）でメモリとオーディオノード数が増え続けないこと。
+- 一時停止直後（カードのフェード中にポーズ）→ 再開で、全レーンにカードが戻ること。

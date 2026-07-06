@@ -8,6 +8,7 @@ const WORD_AUDIO_OUTPUT_SCALE = 1.08;
 const WORD_AUDIO_ROOT = "assets/word-audio/en-us-edge-tts";
 const WORD_AUDIO_POOL_LIMIT = 24;
 const WORD_AUDIO_PREFETCH_LIMIT = 8;
+const WORD_AUDIO_LOAD_WARNING_MS = 1400;
 
 export class AudioEngine {
   constructor(getSettings, bgmTracks = []) {
@@ -33,7 +34,10 @@ export class AudioEngine {
     this.wordAudioCleanup = new Map();
     this.wordAudioTransient = new WeakSet();
     this.wordAudioTimers = new Set();
+    this.wordAudioLoadMonitors = new Set();
     this.wordAudioQueueToken = 0;
+    this.wordAudioStatusHandler = null;
+    this.noiseBuffer = null;
     this.ctx = null;
     this.master = null;
     this.supported = Boolean(globalThis.AudioContext || globalThis.webkitAudioContext);
@@ -41,6 +45,16 @@ export class AudioEngine {
 
   settings() {
     return this.getSettings?.() || {};
+  }
+
+  setWordAudioStatusHandler(handler) {
+    this.wordAudioStatusHandler = typeof handler === "function" ? handler : null;
+  }
+
+  emitWordAudioStatus(status) {
+    if (this.wordAudioStatusHandler) {
+      this.wordAudioStatusHandler(status);
+    }
   }
 
   clampVolume(value, fallback) {
@@ -159,6 +173,32 @@ export class AudioEngine {
       entry.audio.load();
       this.wordAudioPool.delete(url);
     }
+    // 安全弁: 再生停滞などで paused にならない要素が居座ると上限が効かず
+    // Audio要素が増殖するため、それでも超過している場合は最古のものを強制解放する。
+    if (this.wordAudioPool.size > WORD_AUDIO_POOL_LIMIT) {
+      const leftovers = Array.from(this.wordAudioPool.entries())
+        .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
+      while (this.wordAudioPool.size > WORD_AUDIO_POOL_LIMIT && leftovers.length) {
+        const [url, entry] = leftovers.shift();
+        entry.audio.pause();
+        this.wordAudioCleanup.get(entry.audio)?.();
+        entry.audio.removeAttribute("src");
+        entry.audio.load();
+        this.wordAudioPool.delete(url);
+      }
+    }
+  }
+
+  // プール済みのAudio要素をすべて解放する（一時停止・ゲーム終了・タイトル復帰時）。
+  // iOSではHTMLAudioElementがデコーダ資源を掴むため、長時間の一時停止中に保持し続けない。
+  // 必要になれば ensureWordAudio が作り直すので機能への影響はない。
+  releaseWordAudioPool() {
+    this.stopWordAudio();
+    for (const entry of this.wordAudioPool.values()) {
+      entry.audio.removeAttribute("src");
+      entry.audio.load();
+    }
+    this.wordAudioPool.clear();
   }
 
   playableWordAudio(url) {
@@ -176,9 +216,65 @@ export class AudioEngine {
     return clone;
   }
 
-  trackWordAudio(audio) {
+  monitorWordAudioLoad(audio, url) {
+    if (!audio || !url || audio.readyState >= 3) {
+      return () => {};
+    }
+    let warned = false;
+    let done = false;
+    let warningTimer = 0;
+    const clear = (type = "ready") => {
+      if (done) {
+        return;
+      }
+      done = true;
+      if (warningTimer) {
+        clearTimeout(warningTimer);
+        warningTimer = 0;
+      }
+      audio.removeEventListener("canplay", ready);
+      audio.removeEventListener("playing", ready);
+      audio.removeEventListener("error", error);
+      this.wordAudioLoadMonitors.delete(clear);
+      if (warned) {
+        this.emitWordAudioStatus({ type, url });
+      }
+    };
+    const ready = () => clear("ready");
+    const error = () => clear("error");
+    warningTimer = setTimeout(() => {
+      warningTimer = 0;
+      if (done || audio.readyState >= 3) {
+        ready();
+        return;
+      }
+      warned = true;
+      this.emitWordAudioStatus({ type: "slow", url });
+    }, WORD_AUDIO_LOAD_WARNING_MS);
+    audio.addEventListener("canplay", ready, { once: true });
+    audio.addEventListener("playing", ready, { once: true });
+    audio.addEventListener("error", error, { once: true });
+    this.wordAudioLoadMonitors.add(clear);
+    return clear;
+  }
+
+  clearWordAudioLoadMonitors() {
+    for (const clear of Array.from(this.wordAudioLoadMonitors)) {
+      clear("error");
+    }
+    this.wordAudioLoadMonitors.clear();
+  }
+
+  trackWordAudio(audio, maxMs = 8000) {
     this.wordAudioActive.add(audio);
+    // ended/error が発火しないまま停滞した場合の watchdog。
+    // これが無いと wordAudioActive にAudio要素が溜まり続け、プールの追い出しも効かなくなる。
+    let watchdog = 0;
     const cleanup = () => {
+      if (watchdog) {
+        clearTimeout(watchdog);
+        watchdog = 0;
+      }
       this.wordAudioActive.delete(audio);
       this.wordAudioCleanup.delete(audio);
       if (this.wordAudioCurrent === audio) {
@@ -191,6 +287,11 @@ export class AudioEngine {
         audio.load();
       }
     };
+    watchdog = setTimeout(() => {
+      watchdog = 0;
+      audio.pause();
+      cleanup();
+    }, maxMs);
     this.wordAudioCleanup.set(audio, cleanup);
     audio.addEventListener("ended", cleanup, { once: true });
     audio.addEventListener("error", cleanup, { once: true });
@@ -218,6 +319,7 @@ export class AudioEngine {
 
   stopWordAudio() {
     this.clearWordAudioTimers();
+    this.clearWordAudioLoadMonitors();
     this.wordAudioQueueToken += 1;
     for (const audio of this.wordAudioActive) {
       audio.pause();
@@ -269,8 +371,12 @@ export class AudioEngine {
     } catch {
       // Metadata may not be ready yet.
     }
+    const clearLoadMonitor = this.monitorWordAudioLoad(audio, url);
     const cleanup = this.trackWordAudio(audio);
-    audio.play().catch(() => {
+    audio.play().then(() => {
+      clearLoadMonitor("ready");
+    }).catch(() => {
+      clearLoadMonitor("error");
       cleanup();
       // User gesture and autoplay rules can still block media on some browsers.
     });
@@ -363,20 +469,24 @@ export class AudioEngine {
     } catch {
       // Metadata may not be ready yet.
     }
+    const clearLoadMonitor = this.monitorWordAudioLoad(audio, url);
     return new Promise((resolve) => {
       let done = false;
-      const finish = () => {
+      const finishReady = () => finish("ready");
+      const finishError = () => finish("error");
+      const finish = (type = "ready") => {
         if (done) {
           return;
         }
         done = true;
+        clearLoadMonitor(type);
         this.wordAudioActive.delete(audio);
         this.wordAudioCleanup.delete(audio);
         if (this.wordAudioCurrent === audio) {
           this.wordAudioCurrent = null;
         }
-        audio.removeEventListener("ended", finish);
-        audio.removeEventListener("error", finish);
+        audio.removeEventListener("ended", finishReady);
+        audio.removeEventListener("error", finishError);
         clearTimeout(timer);
         if (this.wordAudioTransient.has(audio)) {
           audio.removeAttribute("src");
@@ -384,12 +494,14 @@ export class AudioEngine {
         }
         resolve();
       };
-      const timer = setTimeout(finish, maxItemMs);
+      const timer = setTimeout(() => finish("error"), maxItemMs);
       this.wordAudioActive.add(audio);
       this.wordAudioCleanup.set(audio, finish);
-      audio.addEventListener("ended", finish, { once: true });
-      audio.addEventListener("error", finish, { once: true });
-      audio.play().catch(finish);
+      audio.addEventListener("ended", finishReady, { once: true });
+      audio.addEventListener("error", finishError, { once: true });
+      audio.play().then(() => {
+        clearLoadMonitor("ready");
+      }).catch(() => finish("error"));
     });
   }
 
@@ -495,6 +607,12 @@ export class AudioEngine {
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
     osc.connect(gain);
     gain.connect(destination);
+    // 再生終了後にグラフから切り離す。放置するとSFXのたびにノードが
+    // オーディオグラフへ蓄積し、iOSで進行性の負荷増・発熱の原因になる。
+    osc.onended = () => {
+      osc.disconnect();
+      gain.disconnect();
+    };
     osc.start(start);
     osc.stop(start + duration + 0.03);
   }
@@ -526,6 +644,11 @@ export class AudioEngine {
       amp.gain.exponentialRampToValueAtTime(0.0001, start + duration);
       osc.connect(amp);
       amp.connect(this.master);
+      // 再生終了後にグラフから切り離す（ノード蓄積によるオーディオスレッド負荷増を防ぐ）。
+      osc.onended = () => {
+        osc.disconnect();
+        amp.disconnect();
+      };
       osc.start(start);
       osc.stop(start + duration + 0.04);
     };
@@ -543,11 +666,15 @@ export class AudioEngine {
     if (!this.ctx || !this.sfxEnabled()) {
       return;
     }
+    // ノイズバッファは毎回生成せず使い回す（ミス連発時のアロケーション/GCを避ける）。
     const sampleRate = this.ctx.sampleRate;
-    const buffer = this.ctx.createBuffer(1, Math.max(1, Math.floor(sampleRate * duration)), sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i += 1) {
-      data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const length = Math.max(1, Math.floor(sampleRate * duration));
+    if (!this.noiseBuffer || this.noiseBuffer.length < length || this.noiseBuffer.sampleRate !== sampleRate) {
+      this.noiseBuffer = this.ctx.createBuffer(1, length, sampleRate);
+      const data = this.noiseBuffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+      }
     }
     const source = this.ctx.createBufferSource();
     const filter = this.ctx.createBiquadFilter();
@@ -556,11 +683,18 @@ export class AudioEngine {
     filter.frequency.value = 900;
     gain.gain.setValueAtTime(gainValue, start);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    source.buffer = buffer;
+    source.buffer = this.noiseBuffer;
     source.connect(filter);
     filter.connect(gain);
     gain.connect(this.master);
+    // 再生終了後にグラフから切り離す。
+    source.onended = () => {
+      source.disconnect();
+      filter.disconnect();
+      gain.disconnect();
+    };
     source.start(start);
+    source.stop(start + duration + 0.03);
   }
 
   chooseTrack(restart = false) {

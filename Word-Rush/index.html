@@ -33,7 +33,7 @@
       <div class="brand">
         <div class="brand-title">
           <img class="brand-icon" src="assets/icons/favicon.svg" alt="" aria-hidden="true">
-          <h1>Word Rush</h1>
+          <h1 id="brandTitleText">Word Rush</h1>
         </div>
         <div class="phase" id="phaseLabel">Loading</div>
       </div>
@@ -132,6 +132,9 @@
       <div class="game-shell">
         <canvas id="gameCanvas" width="900" height="620"></canvas>
         <div class="answers" id="answers"></div>
+        <div class="network-toast hidden" id="networkToast" role="status" aria-live="polite">
+          電波状況が不安定です。単語音声の読み込みに時間がかかっています。
+        </div>
         <div class="loading-veil hidden" id="loadingVeil" aria-live="polite" aria-label="Loading">
           <div class="loading-card">
             <div class="loading-spinner" aria-hidden="true"></div>
@@ -171,6 +174,19 @@
                       </button>
                       <div class="level-menu hidden" id="levelMenu" role="listbox" aria-label="レベル選択"></div>
                     </div>
+                  </div>
+                  <div class="title-control word-list-control">
+                    <span>単語一覧</span>
+                    <button class="word-list-button" id="wordListButton" type="button" title="収録単語一覧" aria-label="収録単語一覧">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M8 6h12"></path>
+                        <path d="M8 12h12"></path>
+                        <path d="M8 18h12"></path>
+                        <path d="M4 6h.01"></path>
+                        <path d="M4 12h.01"></path>
+                        <path d="M4 18h.01"></path>
+                      </svg>
+                    </button>
                   </div>
                   <label class="title-control">
                     <span>レーン</span>
@@ -364,6 +380,29 @@
             <p>1問でも誤答またはミスをすると、その場でゲーム終了になる緊張感のあるモードです。</p>
           </section>
         </div>
+      </section>
+    </div>
+
+    <div class="return-confirm-modal hidden" id="returnConfirmModal" role="dialog" aria-modal="true" aria-labelledby="returnConfirmTitle" aria-describedby="returnConfirmCopy">
+      <div class="return-confirm-backdrop" id="returnConfirmBackdrop"></div>
+      <section class="return-confirm-window">
+        <h2 id="returnConfirmTitle">スタート画面に戻りますか？</h2>
+        <p id="returnConfirmCopy">現在のゲームを中断してスタート画面に戻ります。</p>
+        <div class="return-confirm-actions">
+          <button class="return-confirm-button" id="returnConfirmButton" type="button">Yes</button>
+          <button class="secondary-button return-continue-button" id="returnContinueButton" type="button">No</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="word-list-modal hidden" id="wordListModal" role="dialog" aria-modal="true" aria-labelledby="wordListTitle">
+      <div class="word-list-backdrop" id="wordListBackdrop"></div>
+      <section class="word-list-window">
+        <header class="word-list-header">
+          <h2 id="wordListTitle">Word List</h2>
+          <button class="word-list-close" id="wordListCloseButton" type="button" aria-label="Close">Close</button>
+        </header>
+        <div class="word-list-table" id="wordListTable"></div>
       </section>
     </div>
 
