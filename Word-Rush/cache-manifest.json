@@ -1,6 +1,6 @@
 {
-  "version": "379504c97cdc8adb",
-  "generatedAt": "2026-07-07T15:45:37.837Z",
+  "version": "52dbd0c9395acf7e",
+  "generatedAt": "2026-07-07T16:06:37.398Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -196,7 +196,7 @@
     },
     {
       "url": "js/audio.js",
-      "revision": "4530a456380f62fbcda3bee1203b390b5371f275c2abb0c1cc50eacf6c9815b1"
+      "revision": "5eab7eb935cfce9d9cd6922a1a2b5a22ecb0c91b4fdd77b3f05867c019f55281"
     },
     {
       "url": "js/config.js",
@@ -204,7 +204,7 @@
     },
     {
       "url": "js/game.js",
-      "revision": "2e4aa9d2862404111efee9fceb862c5871e82cf16b3eca5e5360ed27f025e154"
+      "revision": "5215b11d850791262b83ba033a72f2be9660d45f50aa1ce5b1337a2578a567a6"
     },
     {
       "url": "js/levels.config.js",

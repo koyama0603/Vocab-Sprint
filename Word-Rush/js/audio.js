@@ -7,6 +7,9 @@ const SFX_MAX_GAIN = 1.856;
 const WORD_AUDIO_OUTPUT_SCALE = 1.08;
 const WORD_AUDIO_ROOT = "assets/word-audio/en-us-edge-tts";
 const WORD_AUDIO_POOL_LIMIT = 24;
+// 同一語が再生中に再度必要になったときの一時再生用Audio要素の再利用リング上限。
+// プール本体と同様、new Audio() の churn を避けるため作り直さず使い回す。
+const WORD_AUDIO_TRANSIENT_LIMIT = 4;
 const WORD_AUDIO_PREFETCH_LIMIT = 8;
 const WORD_AUDIO_LOAD_WARNING_MS = 1400;
 const WORD_AUDIO_MANIFEST_TIMEOUT_MS = 3000;
@@ -47,6 +50,8 @@ export class AudioEngine {
     this.wordAudioFailures = new Map();
     this.wordAudioFailureTimes = [];
     this.wordAudioNetworkCooldownUntil = 0;
+    // 一時再生用（クローン）Audio要素の再利用リング。再生終了後にここへ戻して使い回す。
+    this.wordAudioTransientRing = [];
     this.noiseBuffer = null;
     this.ctx = null;
     this.master = null;
@@ -394,6 +399,11 @@ export class AudioEngine {
       this.releaseWordAudioEntry(url, entry);
     }
     this.wordAudioPool.clear();
+    // 一時再生用リングの要素も資源を解放する（次ゲームで必要になれば作り直す）。
+    for (const audio of this.wordAudioTransientRing) {
+      this.releaseAudioElement(audio);
+    }
+    this.wordAudioTransientRing.length = 0;
   }
 
   playableWordAudio(url) {
@@ -407,11 +417,42 @@ export class AudioEngine {
     if (audio.paused) {
       return audio;
     }
-    const clone = new Audio();
-    clone.preload = "auto";
-    clone.src = url;
-    this.wordAudioTransient.add(clone);
-    return clone;
+    // プール要素が再生中なら、一時再生用要素を「リングから再利用」して同時再生する（new Audio()しない）。
+    return this.acquireTransientWordAudio(url);
+  }
+
+  // 一時再生用のAudio要素をリングから取り出す（無ければ上限までのみ新規生成）。
+  acquireTransientWordAudio(url) {
+    let audio = this.wordAudioTransientRing.pop();
+    if (!audio) {
+      audio = new Audio();
+    }
+    audio.preload = "auto";
+    // 同じURLの要素を使い回すときは再ロードを避ける（getterは絶対URLなので属性で比較）。
+    if (audio.getAttribute("src") !== url) {
+      audio.src = url;
+    }
+    this.wordAudioTransient.add(audio);
+    return audio;
+  }
+
+  // 使い終えた一時再生用要素を解放する。リングに空きがあれば戻して再利用、無ければ資源を解放する。
+  recycleTransientWordAudio(audio) {
+    if (!audio) {
+      return;
+    }
+    this.wordAudioTransient.delete(audio);
+    audio.pause();
+    try {
+      audio.currentTime = 0;
+    } catch {
+      // メタデータ未取得時などは無視。
+    }
+    if (this.wordAudioTransientRing.length < WORD_AUDIO_TRANSIENT_LIMIT) {
+      this.wordAudioTransientRing.push(audio);
+    } else {
+      this.releaseAudioElement(audio);
+    }
   }
 
   monitorWordAudioLoad(audio, url) {
@@ -490,7 +531,7 @@ export class AudioEngine {
         onCleanup(reason);
       }
       if (this.wordAudioTransient.has(audio)) {
-        this.releaseAudioElement(audio);
+        this.recycleTransientWordAudio(audio);
       }
     };
     watchdog = setTimeout(() => {
@@ -706,7 +747,7 @@ export class AudioEngine {
           this.markWordAudioProblem(url);
         }
         if (this.wordAudioTransient.has(audio)) {
-          this.releaseAudioElement(audio);
+          this.recycleTransientWordAudio(audio);
         }
         resolve();
       };

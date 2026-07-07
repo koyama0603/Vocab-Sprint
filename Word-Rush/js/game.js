@@ -3898,10 +3898,15 @@ export class VocabSprintGame {
 
         this.ctx.fillStyle = gold;
         const maxLines = baseCardWidth * 0.88 < 150 ? 3 : 2;
-        const layoutKey = `${effect.text}|${Math.round(baseCardWidth)}|${Math.round(baseCardHeight)}|${maxLines}`;
-        if (effect.textLayoutKey !== layoutKey) {
-          effect.textLayoutKey = layoutKey;
+        // レイアウトはeffect単位でキャッシュ。テキストは不変なので寸法・行数の数値比較だけで判定し、
+        // 毎フレームのキー文字列生成を避ける（カード描画と同じ方式）。
+        const revealW = Math.round(baseCardWidth);
+        const revealH = Math.round(baseCardHeight);
+        if (!effect.textLayout || effect.textLayoutW !== revealW || effect.textLayoutH !== revealH || effect.textLayoutLines !== maxLines) {
           effect.textLayout = this.layoutCanvasText(effect.text, baseCardWidth - 20, baseCardHeight - 18, 44, maxLines, 12);
+          effect.textLayoutW = revealW;
+          effect.textLayoutH = revealH;
+          effect.textLayoutLines = maxLines;
         }
         const textLayout = effect.textLayout;
         const textSize = Math.max(12, Math.round(textLayout.size * scale));
