@@ -1,6 +1,6 @@
 {
-  "version": "555fb1c7c79cdfe2",
-  "generatedAt": "2026-07-07T12:34:30.178Z",
+  "version": "379504c97cdc8adb",
+  "generatedAt": "2026-07-07T15:45:37.837Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -196,7 +196,7 @@
     },
     {
       "url": "js/audio.js",
-      "revision": "7331995123a99a2275d5888b0fba6bf6afce3a4ca1469e1ed87425ba9a4f7580"
+      "revision": "4530a456380f62fbcda3bee1203b390b5371f275c2abb0c1cc50eacf6c9815b1"
     },
     {
       "url": "js/config.js",

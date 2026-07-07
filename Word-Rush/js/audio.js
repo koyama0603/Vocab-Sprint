@@ -283,34 +283,17 @@ export class AudioEngine {
     }
     let entry = this.wordAudioPool.get(url);
     if (!entry) {
-      const audio = new Audio();
-      audio.preload = preload;
-      audio.src = url;
-      entry = {
-        audio,
-        lastUsed: performance.now(),
-        dispose: null
-      };
-      const ready = () => this.markWordAudioReady(url);
-      const error = () => {
-        if (this.wordAudioActive.has(audio)) {
-          return;
-        }
-        this.markWordAudioProblem(url);
-        this.releaseWordAudioEntry(url, entry);
-      };
-      audio.addEventListener("canplay", ready);
-      audio.addEventListener("playing", ready);
-      audio.addEventListener("error", error);
-      entry.dispose = () => {
-        audio.removeEventListener("canplay", ready);
-        audio.removeEventListener("playing", ready);
-        audio.removeEventListener("error", error);
-      };
-      this.wordAudioPool.set(url, entry);
-      if (preload !== "none") {
-        this.loadAudioElement(audio, url);
+      // プールが満杯なら Audio 要素を作り直さず、アイドルな要素の src を差し替えて再利用する。
+      // 毎回 new Audio() すると iOS で再生資源のchurn＝進行性の発熱・劣化になるため、
+      // 生成数を実質プール上限に抑える。再利用できる要素が無いときだけ新規生成する。
+      let audio = null;
+      if (this.wordAudioPool.size >= WORD_AUDIO_POOL_LIMIT) {
+        audio = this.takeReusableWordAudio();
       }
+      if (!audio) {
+        audio = new Audio();
+      }
+      entry = this.createWordAudioEntry(audio, url, preload);
       this.evictWordAudioPool();
     } else {
       entry.lastUsed = performance.now();
@@ -320,6 +303,63 @@ export class AudioEngine {
       }
     }
     return entry.audio;
+  }
+
+  // Audio 要素（新規または再利用）を url 用のプールエントリに仕立てる。
+  createWordAudioEntry(audio, url, preload) {
+    audio.preload = preload;
+    audio.src = url;
+    const entry = {
+      audio,
+      lastUsed: performance.now(),
+      dispose: null
+    };
+    const ready = () => this.markWordAudioReady(url);
+    const error = () => {
+      if (this.wordAudioActive.has(audio)) {
+        return;
+      }
+      this.markWordAudioProblem(url);
+      this.releaseWordAudioEntry(url, entry);
+    };
+    audio.addEventListener("canplay", ready);
+    audio.addEventListener("playing", ready);
+    audio.addEventListener("error", error);
+    entry.dispose = () => {
+      audio.removeEventListener("canplay", ready);
+      audio.removeEventListener("playing", ready);
+      audio.removeEventListener("error", error);
+    };
+    this.wordAudioPool.set(url, entry);
+    if (preload !== "none") {
+      this.loadAudioElement(audio, url);
+    }
+    return entry;
+  }
+
+  // 再生中でないアイドルなプール要素を1つ取り出して返す（見つからなければ null）。
+  // 取り出した要素はプールから外し、リスナーも解除して再利用可能な素の状態にする。
+  takeReusableWordAudio() {
+    let oldestUrl = null;
+    let oldestEntry = null;
+    for (const [poolUrl, poolEntry] of this.wordAudioPool) {
+      if (this.wordAudioActive.has(poolEntry.audio) || !poolEntry.audio.paused) {
+        continue;
+      }
+      if (!oldestEntry || poolEntry.lastUsed < oldestEntry.lastUsed) {
+        oldestUrl = poolUrl;
+        oldestEntry = poolEntry;
+      }
+    }
+    if (!oldestEntry) {
+      return null;
+    }
+    this.wordAudioPool.delete(oldestUrl);
+    if (typeof oldestEntry.dispose === "function") {
+      oldestEntry.dispose();
+    }
+    oldestEntry.audio.pause();
+    return oldestEntry.audio;
   }
 
   evictWordAudioPool() {

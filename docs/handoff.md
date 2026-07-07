@@ -286,7 +286,10 @@ npx --yes wrangler@latest deploy
 ### HTMLAudioElement（単語音声・BGM）
 
 - iOSでは `<audio>` 要素1つごとにOSのデコーダ資源を掴む。同時生存数を増やさないこと。単語音声プールは `WORD_AUDIO_POOL_LIMIT`（24）で追い出し、`ended`/`error` が来ない停滞要素は `trackWordAudio` の watchdog（8秒）で強制解放する。この仕組みを迂回して `new Audio()` を直接使わない。
-- 一時停止・ゲーム終了・タイトル復帰時は `releaseWordAudioPool()` で全解放する（長時間ポーズ中に資源を掴み続けない）。必要になれば `ensureWordAudio` が作り直すので機能影響はない。
+- **`new Audio()` を毎再生ごとに作らない（進行性の発熱・劣化の主因だった）。** `ensureWordAudio` はプールが満杯（24）になったら Audio 要素を作り直さず、アイドル（再生中でなく paused）な要素を `takeReusableWordAudio()` で取り出し `createWordAudioEntry` で `src` を差し替えて再利用する。これにより1ゲームあたりの Audio 生成数は実質プール上限（約24）で頭打ちになり、定常プレイ中の生成は0になる（計測で確認: fade/fixedモードは充填後0/秒、rushは同時再生クローンで約0.87/秒）。プール構造・watchdog・失敗クールダウンはそのまま。
+- 「ゲームを続けると重くなる」の実測結論（2026-07時点）: JSヒープ・DOMノードは長時間プレイでも安定（リークなし）。犯人は**単語音声の Audio 要素を毎スポーン作り直していた create/destroy churn**（iOSのネイティブ音声資源を消耗）。**集中/じっくりで顕著だったのは、これらのモードは1ゲームが長引きやすく churn の総量が増えるため**（コード自体はモード非依存）。再現・計測は「単語音声ON」で行うこと（`wordAudioEnabled` を localStorage に false 保存したまま計測すると生成0になり誤診する）。
+- 一時停止・ゲーム終了・タイトル復帰時は `releaseWordAudioPool()` で全解放する（長時間ポーズ中に資源を掴み続けない）。必要になれば `ensureWordAudio` が作り直すので機能影響はない。次ゲーム開始時にプールを再充填するため開始直後に約24個生成されるが、その後は再利用で0になる（一時的コストで churn ではない）。
+- 先読み（`prefetchUpcomingWordAudio` → `preloadWordAudio`）も `ensureWordAudio` 経由なので、上記の再利用により Audio 生成は頭打ちに含まれる。プリフェッチを fetch ベースのキャッシュ温めに変える案は効果が薄く（生成の主因は再生側）、複雑さに見合わないため採用しない。
 
 ### タイマー・状態のライフサイクル
 
