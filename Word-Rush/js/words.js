@@ -94,14 +94,18 @@ async function readWords(level) {
 
 export async function loadWords(level) {
   const cacheKey = level.file;
+  let request = wordCache.get(cacheKey);
   if (!wordCache.has(cacheKey)) {
-    const request = readWords(level).catch((error) => {
-      wordCache.delete(cacheKey);
-      throw error;
-    });
+    request = readWords(level);
     wordCache.set(cacheKey, request);
   }
 
-  const words = await wordCache.get(cacheKey);
-  return words.slice();
+  try {
+    const words = await request;
+    return words.slice();
+  } finally {
+    if (wordCache.get(cacheKey) === request) {
+      wordCache.delete(cacheKey);
+    }
+  }
 }

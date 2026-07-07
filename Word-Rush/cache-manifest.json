@@ -1,6 +1,6 @@
 {
-  "version": "06fa8ae7a32960a9",
-  "generatedAt": "2026-07-06T14:10:33.776Z",
+  "version": "555fb1c7c79cdfe2",
+  "generatedAt": "2026-07-07T12:34:30.178Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -40,7 +40,7 @@
     },
     {
       "url": "css/styles.css",
-      "revision": "0461a66375f168b0206fd35bdc4021bb8d02520f00a9aaed40495a13c22809d8"
+      "revision": "cf8149d370c64b54e5a6ae46ecdf3a7b227353bdc224f88b33ca3b7646643b1e"
     },
     {
       "url": "data/a1-part1.csv",
@@ -196,15 +196,15 @@
     },
     {
       "url": "js/audio.js",
-      "revision": "bf85b3380185c9d517f6381287eef3d10a9f7ca0d91e18c3465f3e7f1d42dd7d"
+      "revision": "7331995123a99a2275d5888b0fba6bf6afce3a4ca1469e1ed87425ba9a4f7580"
     },
     {
       "url": "js/config.js",
-      "revision": "433aa74b3c4818e27bfe9deb349abac51319cb7c3e3ed343b0fdc67947ed7ae0"
+      "revision": "b52ca88940d0373e3a45591b0b57c2fed9a3cfe0f2fbccb13f2e8645efca58ea"
     },
     {
       "url": "js/game.js",
-      "revision": "8b2fc693cddfc17a940c7319b864a7bcfa3e7cd8832b6743f3c21f02667339e3"
+      "revision": "2e4aa9d2862404111efee9fceb862c5871e82cf16b3eca5e5360ed27f025e154"
     },
     {
       "url": "js/levels.config.js",
@@ -220,7 +220,7 @@
     },
     {
       "url": "js/words.js",
-      "revision": "7887ede796121f091799da15f5c6927876a827fee8a56cfc9c6a283523411d51"
+      "revision": "1a3dc4ad03b667198769b6d05846870d29d61c98059a0dfbd9d886c1a81a9d34"
     },
     {
       "url": "manifest.webmanifest",

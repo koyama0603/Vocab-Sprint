@@ -32,7 +32,20 @@ const WORD_AUDIO_START_GAP_MS = 620;
 const WORD_AUDIO_START_MAX_ITEM_MS = 2600;
 const WORD_AUDIO_SPAWN_DELAY_MS = 90;
 const WORD_AUDIO_PREFETCH_COUNT = 6;
+const WORD_AUDIO_PREFETCH_INTERVAL_MS = 2400;
 const WORD_STATS_SAVE_DEBOUNCE_MS = 1800;
+// キャンバスのバックバッファ解像度上限。iPhone(dpr=3)などでは全面塗り＋レーン背景の
+// 多層オーバードローがフィルレートを圧迫して発熱するため、2.0ではなく1.5で頭打ちにする。
+const CANVAS_MAX_DPR = 1.5;
+// レーン背景のうねり帯の分割数。多いほど滑らかだが1フレームの頂点数が増える（発熱要因）。
+const LANE_FLOW_STEPS = 12;
+// レーン背景のリボン定義。色はテーマ、seedはレーンで変わるので、
+// 形状パラメータだけを定数化して毎フレームのオブジェクト生成を避ける。
+const LANE_FLOW_RIBBONS = [
+  { colorKey: "coolMid", thickness: 0.36, speed: 24, freq: 1.6, sway: 0.55, seedBase: 0, seedStep: 173.3 },
+  { colorKey: "warmMid", thickness: 0.28, speed: 17, freq: 2.2, sway: 0.42, seedBase: 91.7, seedStep: 211.9 },
+  { colorKey: "greenSoft", thickness: 0.22, speed: 31, freq: 1.25, sway: 0.5, seedBase: 47.1, seedStep: 97.3 }
+];
 const DEFAULT_GAME_MODE_ID = "rush";
 const FADE_MODE_VISIBLE_RATIO = 0.3;
 const GAME_MODES = [
@@ -131,16 +144,33 @@ function parseCanvasColorCached(color) {
   return parsed;
 }
 
+// 色×alpha の rgba 文字列生成もメモ化する。カードのフェード中は同じ色×alphaが
+// 複数カード・複数フレームで繰り返し要求されるため、生成文字列の使い回しでGCを抑える。
+// alpha は連続値なので 1/64 刻みに量子化してキー数を抑える。
+const COLOR_ALPHA_CACHE = new Map();
+const COLOR_ALPHA_STEPS = 64;
+
 function colorWithAlpha(color, alpha) {
   if (alpha >= 1) {
     return color;
   }
-  const parsed = parseCanvasColorCached(color);
-  if (!parsed) {
-    return color;
+  const quantized = Math.round(clamp01(alpha) * COLOR_ALPHA_STEPS);
+  const key = `${color}@${quantized}`;
+  let result = COLOR_ALPHA_CACHE.get(key);
+  if (result === undefined) {
+    const parsed = parseCanvasColorCached(color);
+    if (!parsed) {
+      result = color;
+    } else {
+      const nextAlpha = clamp01(parsed.a * (quantized / COLOR_ALPHA_STEPS));
+      result = `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${nextAlpha})`;
+    }
+    if (COLOR_ALPHA_CACHE.size > 1024) {
+      COLOR_ALPHA_CACHE.clear();
+    }
+    COLOR_ALPHA_CACHE.set(key, result);
   }
-  const nextAlpha = clamp01(parsed.a * alpha);
-  return `rgba(${parsed.r}, ${parsed.g}, ${parsed.b}, ${nextAlpha})`;
+  return result;
 }
 
 export class VocabSprintGame {
@@ -323,6 +353,9 @@ export class VocabSprintGame {
     this.isLooping = false;
     // テーマの色はフレームごとに getComputedStyle し直すと高コストなので一度だけ読んでキャッシュする。
     this.colors = {};
+    // レーン背景の縦グラデ（veil）はサイズ・テーマが変わらない限り使い回す（毎フレーム生成を避ける）。
+    this.veilGradient = null;
+    this.veilGradientKey = "";
     // 学習統計は毎フレーム全単語を走査すると重いので、変化時だけ再計算してキャッシュする。
     this.statsCache = null;
     this.reviewTooltipPressTimer = 0;
@@ -332,9 +365,13 @@ export class VocabSprintGame {
     this.wordStatsSaveTimer = 0;
     this.wordStatsDirty = false;
     this.slowWordAudioUrls = new Set();
+    this.lastWordAudioPrefetchAt = 0;
     // カード再出現の setTimeout を管理する。放置すると一時停止/リスタートを跨いで発火し、
     // レーン喪失や新ゲームのカード差し替えを起こすため、状態遷移時に必ずクリアする。
     this.spawnTimers = new Set();
+    // 回答ボタンのDOM参照（レーン別）。1レーンだけ変わるとき（出題差し替え/回答フラッシュ）は
+    // 全再構築せず該当レーンだけ差分更新するために保持する。renderAnswerButtons が毎回作り直す。
+    this.laneButtonRefs = [];
     this.audio = new AudioEngine(() => this.state.settings, BGM_TRACKS);
     this.audio.setWordAudioStatusHandler((status) => this.handleWordAudioStatus(status));
   }
@@ -355,6 +392,9 @@ export class VocabSprintGame {
     this.observeCanvasSize();
     this.attachEvents();
     // ループはプレイ中のみ回す。ここでは1フレームだけ描いておく。
+    // 単語音声のrevision取得はキャッシュバスト用クエリにしか使わないため、
+    // 初回レベル表示をブロックしないよう待たずにバックグラウンドで開始する（低速回線の起動遅延を防ぐ）。
+    this.audio.ensureWordAudioRevision();
     await this.loadLevel(this.state.levelId);
     this.maybeOpenInitialHelp();
   }
@@ -879,6 +919,8 @@ export class VocabSprintGame {
       return;
     }
     this.hideReviewTooltip();
+    this.clearReviewTooltipPress();
+    this.clearAnswerFocus();
     this.setLevelMenuOpen(false);
     this.setSoundPanelOpen(false);
     this.state.returnConfirmPreviousPhase = this.state.phase;
@@ -891,6 +933,8 @@ export class VocabSprintGame {
       this.audio.releaseWordAudioPool();
       this.flushWordStats();
       this.hideNetworkToast({ clear: true });
+      this.state.countdownSecond = 0;
+      this.state.effects = [];
     }
     this.state.returnConfirmOpen = true;
     this.ui.returnConfirmModal.classList.remove("hidden");
@@ -910,8 +954,10 @@ export class VocabSprintGame {
     if (shouldResume && this.state.phase === "paused") {
       this.state.phase = "playing";
       this.state.lastTime = performance.now();
+      this.lastWordAudioPrefetchAt = 0;
       this.audio.startBgm(() => this.state.phase);
       this.respawnStalledLanes();
+      this.prefetchUpcomingWordAudio({ force: true });
       this.startRenderLoop();
     }
     this.updateUi();
@@ -1417,15 +1463,24 @@ export class VocabSprintGame {
 
     this.flushWordStats();
     const token = ++this.loadToken;
+    this.stopRenderLoop();
+    this.clearSpawnTimers();
     this.audio.stopBgm();
-    this.audio.stopWordAudio();
+    this.audio.releaseWordAudioPool();
+    this.audio.stopBgmPreview();
     this.hideNetworkToast({ clear: true });
+    this.clearReviewTooltipPress();
+    this.clearAnswerFocus();
     this.state.phase = "loading";
     this.state.levelId = levelId;
     this.ui.level.value = levelId;
     this.state.words = [];
     this.state.lanes = [];
     this.state.effects = [];
+    this.state.wordBag = [];
+    this.state.recent = [];
+    this.state.countdownSecond = 0;
+    this.lastWordAudioPrefetchAt = 0;
     this.state.loadError = "";
     this.invalidateStatsCache();
     this.savePreferences();
@@ -1441,10 +1496,7 @@ export class VocabSprintGame {
     this.drawBoard();
 
     try {
-      const [words] = await Promise.all([
-        loadWords(level),
-        this.audio.ensureWordAudioRevision()
-      ]);
+      const words = await loadWords(level);
       if (token !== this.loadToken) {
         return;
       }
@@ -1483,10 +1535,15 @@ export class VocabSprintGame {
     }
   }
 
+  // バックバッファ解像度の倍率。resizeCanvas と canvasSize で必ず同じ値を使う。
+  deviceRatio() {
+    return Math.max(1, Math.min(CANVAS_MAX_DPR, window.devicePixelRatio || 1));
+  }
+
   resizeCanvas() {
     const oldSize = this.canvas.width && this.canvas.height ? this.canvasSize() : null;
     const box = this.canvas.getBoundingClientRect();
-    const ratio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const ratio = this.deviceRatio();
     this.canvas.width = Math.max(1, Math.floor(box.width * ratio));
     this.canvas.height = Math.max(1, Math.floor(box.height * ratio));
     this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -1508,7 +1565,7 @@ export class VocabSprintGame {
   }
 
   canvasSize() {
-    const ratio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const ratio = this.deviceRatio();
     return {
       width: this.canvas.width / ratio,
       height: this.canvas.height / ratio
@@ -1609,19 +1666,20 @@ export class VocabSprintGame {
     this.state.wordBag = this.shuffle(this.state.words);
   }
 
-  wordPriorityWeight(word) {
+  wordPriorityWeight(word, now = Date.now()) {
     const stats = this.wordStatFor(word);
     const seen = Math.max(0, stats.seen || 0);
     const incorrectRate = seen ? (stats.incorrect || 0) / seen : 0;
     const lowSeenWeight = 8 / Math.sqrt(seen + 1);
     const unseenWeight = seen ? 0 : 10;
     const incorrectWeight = incorrectRate * 4 + Math.min(5, stats.incorrect || 0) * 0.35;
-    const staleDays = stats.lastSeen ? Math.min(14, (Date.now() - stats.lastSeen) / 86400000) : 14;
+    const staleDays = stats.lastSeen ? Math.min(14, (now - stats.lastSeen) / 86400000) : 14;
     return Math.max(0.1, 1 + unseenWeight + lowSeenWeight + incorrectWeight + staleDays * 0.08);
   }
 
   weightedWord(candidates) {
-    const weights = candidates.map((word) => this.wordPriorityWeight(word));
+    const now = Date.now();
+    const weights = candidates.map((word) => this.wordPriorityWeight(word, now));
     const total = weights.reduce((sum, weight) => sum + weight, 0);
     if (total <= 0) {
       return candidates[this.randInt(0, candidates.length - 1)];
@@ -1736,7 +1794,7 @@ export class VocabSprintGame {
       this.spawnLane(laneIndex, true);
       this.playLaneWordAudio(laneIndex, WORD_AUDIO_SPAWN_DELAY_MS);
       this.prefetchUpcomingWordAudio();
-      this.refreshAnswerButtons();
+      this.updateLaneAnswerButtons(laneIndex);
     }, delayMs);
     this.spawnTimers.add(timer);
   }
@@ -1925,18 +1983,27 @@ export class VocabSprintGame {
     this.syncNetworkToast();
   }
 
-  prefetchUpcomingWordAudio() {
+  prefetchUpcomingWordAudio(options = {}) {
     if (this.state.phase !== "playing" || !this.state.words.length) {
       return;
     }
+    if (!this.audio.canPrefetchWordAudio()) {
+      return;
+    }
+    const now = performance.now();
+    if (!options.force && now - this.lastWordAudioPrefetchAt < WORD_AUDIO_PREFETCH_INTERVAL_MS) {
+      return;
+    }
+    this.lastWordAudioPrefetchAt = now;
     const active = new Set(
       this.state.lanes
         .map((lane) => this.wordStatKey(lane?.word))
         .filter(Boolean)
     );
+    const statsNow = Date.now();
     const candidates = this.state.words
       .filter((word) => !active.has(this.wordStatKey(word)))
-      .sort((a, b) => this.wordPriorityWeight(b) - this.wordPriorityWeight(a))
+      .sort((a, b) => this.wordPriorityWeight(b, statsNow) - this.wordPriorityWeight(a, statsNow))
       .slice(0, WORD_AUDIO_PREFETCH_COUNT);
     this.preloadWordAudioFor(candidates, { preload: "metadata", limit: WORD_AUDIO_PREFETCH_COUNT });
   }
@@ -1995,7 +2062,7 @@ export class VocabSprintGame {
       gapMs: WORD_AUDIO_START_GAP_MS,
       maxItemMs: WORD_AUDIO_START_MAX_ITEM_MS
     });
-    this.prefetchUpcomingWordAudio();
+    this.prefetchUpcomingWordAudio({ force: true });
   }
 
   startLaneFade(lane, kind, duration = CARD_FADE_OUT_TIME) {
@@ -2186,13 +2253,6 @@ export class VocabSprintGame {
       const links = document.createElement("span");
       links.className = "review-links";
       const encoded = encodeURIComponent(item.english);
-      const wiktionary = this.createLookupButton({
-        label: "Wikt",
-        service: "Wiktionary",
-        word: item.english,
-        url: `https://ja.wiktionary.org/wiki/${encoded}`,
-        mode: "iframe"
-      });
       const eijiro = this.createLookupButton({
         label: "英辞",
         service: "英辞郎",
@@ -2200,6 +2260,8 @@ export class VocabSprintGame {
         url: `https://eow.alc.co.jp/search?q=${encoded}`,
         mode: "iframe"
       });
+      const mobileInfo = this.createWordInfoButton(item);
+      mobileInfo.classList.add("review-mobile-info-button");
       const youglish = this.createLookupButton({
         label: "YouG",
         service: "YouGlish",
@@ -2207,7 +2269,7 @@ export class VocabSprintGame {
         url: `https://youglish.com/pronounce/${encoded}/english`,
         mode: "youglish"
       });
-      links.append(eijiro, youglish, wiktionary);
+      links.append(mobileInfo, eijiro, youglish);
       row.append(english, japanese, status, detail, links);
       this.ui.reviewList.appendChild(row);
     }
@@ -2232,6 +2294,7 @@ export class VocabSprintGame {
     const root = document.createElement("div");
     root.className = "review-tooltip hidden";
     root.setAttribute("aria-hidden", "true");
+    root.inert = true;
     const title = document.createElement("div");
     title.className = "review-tooltip-title";
     const detail = document.createElement("div");
@@ -2362,6 +2425,7 @@ export class VocabSprintGame {
     this.reviewTooltip.close?.classList.toggle("hidden", !showClose);
     this.reviewTooltip.root.classList.toggle("has-close", showClose);
     this.reviewTooltip.root.classList.toggle("is-mobile-fixed", Boolean(options.fixedMobile));
+    this.reviewTooltip.root.inert = false;
     this.reviewTooltip.root.classList.remove("hidden");
     this.reviewTooltip.root.setAttribute("aria-hidden", "false");
     if (options.fixedMobile) {
@@ -2407,12 +2471,24 @@ export class VocabSprintGame {
     this.reviewTooltip.root.style.width = `${width}px`;
   }
 
+  releaseReviewTooltipFocus() {
+    if (!this.reviewTooltip?.root) {
+      return;
+    }
+    const active = document.activeElement;
+    if (active && active !== document.body && this.reviewTooltip.root.contains(active) && typeof active.blur === "function") {
+      active.blur();
+    }
+  }
+
   hideReviewTooltip() {
     if (!this.reviewTooltip) {
       return;
     }
     this.clearReviewTooltipPress();
     this.reviewTooltipPointer = null;
+    this.releaseReviewTooltipFocus();
+    this.reviewTooltip.root.inert = true;
     this.reviewTooltip.root.classList.add("hidden");
     this.reviewTooltip.root.classList.remove("is-mobile-fixed", "has-close");
     this.reviewTooltip.close?.classList.add("hidden");
@@ -2515,13 +2591,10 @@ export class VocabSprintGame {
 
   playReviewWordAudio(item) {
     this.hideReviewTooltip();
-    const play = () => {
-      const url = this.wordAudioUrlFor(item);
-      if (url) {
-        this.audio.playWordAudio(url);
-      }
-    };
-    this.audio.ensureWordAudioRevision().then(play, play);
+    const url = this.wordAudioUrlFor(item);
+    if (url) {
+      this.audio.playWordAudio(url);
+    }
   }
 
   openLookupModal({ service, word, url, mode = "iframe" }) {
@@ -2727,7 +2800,8 @@ export class VocabSprintGame {
     return { max, min };
   }
 
-  fitAnswerTextElements() {
+  // elements を渡すとその要素だけを対象にする（差分更新で該当レーンの3語だけ再フィットする用）。
+  fitAnswerTextElements(elements = null) {
     if (!this.ui.answers) {
       return;
     }
@@ -2740,7 +2814,8 @@ export class VocabSprintGame {
       return;
     }
     const { max, min } = this.answerFontRange();
-    for (const element of this.ui.answers.querySelectorAll(".answer-button .word")) {
+    const targets = elements || this.ui.answers.querySelectorAll(".answer-button .word");
+    for (const element of targets) {
       const text = element.textContent || "";
       element.style.fontSize = `${max}px`;
       if (!text) {
@@ -2806,8 +2881,8 @@ export class VocabSprintGame {
     const labelBase = parseFloat(labelStyle.fontSize) || 12;
     const valueBase = parseFloat(valueStyle.fontSize) || 16;
     const isWideScoreValue = valueElement.id === "scoreValue" || valueElement.id === "bestValue";
-    const labelMin = Math.max(isWideScoreValue ? 8 : 9, labelBase * (isWideScoreValue ? 0.62 : 0.72));
-    const valueMin = Math.max(isWideScoreValue ? 9 : 11, valueBase * (isWideScoreValue ? 0.5 : 0.72));
+    const labelMin = Math.max(isWideScoreValue ? 7.5 : 9, labelBase * (isWideScoreValue ? 0.56 : 0.72));
+    const valueMin = Math.max(isWideScoreValue ? 7.5 : 11, valueBase * (isWideScoreValue ? 0.42 : 0.72));
 
     const measure = (text, weight, size, family) => {
       context.font = `${weight} ${size}px ${family}`;
@@ -2859,11 +2934,40 @@ export class VocabSprintGame {
     }
   }
 
+  // 回答ボタンの1つ分に、現在の状態（disabled / フラッシュ色 / 訳語テキスト・サイズ）を反映する。
+  // フル再構築と差分更新の両方から使い、両者で見た目が一致するようロジックを一本化する。
+  applyAnswerButtonState(button, word, lane, optionIndex) {
+    button.disabled = this.state.phase !== "playing" || Boolean(lane?.locked);
+    button.classList.remove("correct", "wrong");
+    if (lane && lane.flashTime > 0) {
+      const isCorrect = lane.options[optionIndex] === this.answerTextFor(lane.word);
+      if (lane.flash === "correct" && isCorrect) {
+        button.classList.add("correct");
+      } else if (lane.flash === "wrong" && isCorrect) {
+        button.classList.add("correct");
+      } else if (lane.flash === "wrong" && !isCorrect) {
+        button.classList.add("wrong");
+      }
+    }
+    const optionText = lane ? lane.options[optionIndex] : "";
+    const changed = word.textContent !== optionText;
+    if (changed) {
+      word.classList.remove("text-long", "text-very-long");
+      const sizeClass = this.answerTextSizeClass(optionText);
+      if (sizeClass) {
+        word.classList.add(sizeClass);
+      }
+      word.textContent = optionText;
+    }
+    return changed;
+  }
+
   renderAnswerButtons() {
     this.clearAnswerFocus();
     this.ui.answers.innerHTML = "";
     this.ui.answers.style.setProperty("--lane-count", String(this.activeLaneCount()));
     const laneKeys = this.laneKeys();
+    const refs = [];
     for (let laneIndex = 0; laneIndex < this.activeLaneCount(); laneIndex += 1) {
       const lane = this.state.lanes[laneIndex];
       const panel = document.createElement("section");
@@ -2879,45 +2983,60 @@ export class VocabSprintGame {
       title.append(left, right);
       panel.appendChild(title);
 
+      const laneRef = [];
       for (let optionIndex = 0; optionIndex < 3; optionIndex += 1) {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "answer-button";
         button.dataset.lane = String(laneIndex);
         button.dataset.option = String(optionIndex);
-        button.disabled = this.state.phase !== "playing" || Boolean(lane?.locked);
-        if (lane && lane.flashTime > 0) {
-          const isCorrect = lane.options[optionIndex] === this.answerTextFor(lane.word);
-          if (lane.flash === "correct" && isCorrect) {
-            button.classList.add("correct");
-          } else if (lane.flash === "wrong" && isCorrect) {
-            button.classList.add("correct");
-          } else if (lane.flash === "wrong" && !isCorrect) {
-            button.classList.add("wrong");
-          }
-        }
 
         const key = document.createElement("span");
         key.className = "key";
         key.textContent = laneKeys[laneIndex][optionIndex];
         const word = document.createElement("span");
         word.className = "word";
-        const optionText = lane ? lane.options[optionIndex] : "";
-        const sizeClass = this.answerTextSizeClass(optionText);
-        if (sizeClass) {
-          word.classList.add(sizeClass);
-        }
-        word.textContent = optionText;
+        this.applyAnswerButtonState(button, word, lane, optionIndex);
         button.append(key, word);
         button.addEventListener("click", () => {
           button.blur();
           this.answer(laneIndex, optionIndex);
         });
         panel.appendChild(button);
+        laneRef.push({ button, word });
       }
+      refs.push(laneRef);
       this.ui.answers.appendChild(panel);
     }
+    this.laneButtonRefs = refs;
     this.fitAnswerTextElements();
+  }
+
+  // 1レーンだけ状態が変わったとき（出題差し替え・回答フラッシュ）に、そのレーンの
+  // 3ボタンだけを差分更新する。DOM構造が変わっている場合は安全にフル再構築へフォールバックする。
+  updateLaneAnswerButtons(laneIndex) {
+    const laneRef = this.laneButtonRefs[laneIndex];
+    if (
+      this.laneButtonRefs.length !== this.activeLaneCount()
+      || !laneRef
+      || laneRef.length !== 3
+      || !laneRef[0].button.isConnected
+    ) {
+      this.refreshAnswerButtons();
+      return;
+    }
+    const lane = this.state.lanes[laneIndex];
+    const changedWords = [];
+    for (let optionIndex = 0; optionIndex < 3; optionIndex += 1) {
+      const { button, word } = laneRef[optionIndex];
+      if (this.applyAnswerButtonState(button, word, lane, optionIndex)) {
+        changedWords.push(word);
+      }
+    }
+    if (changedWords.length) {
+      this.fitAnswerTextElements(changedWords);
+    }
+    this.clearAnswerFocus();
   }
 
   startGame() {
@@ -2927,9 +3046,11 @@ export class VocabSprintGame {
     this.audio.init();
     this.audio.stopBgmPreview();
     // 前ゲームの残タイマー・再生中の単語音声を持ち越さない。
+    this.stopRenderLoop();
     this.clearSpawnTimers();
     this.audio.stopWordAudio();
     this.hideNetworkToast({ clear: true });
+    this.lastWordAudioPrefetchAt = 0;
     this.state.rngSeed = this.createSeed();
     this.state.phase = "playing";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
@@ -2994,6 +3115,7 @@ export class VocabSprintGame {
   }
 
   returnToTitle() {
+    this.stopRenderLoop();
     this.clearSpawnTimers();
     this.audio.fadeOutBgm(650);
     this.audio.stopWordAudio();
@@ -3001,11 +3123,18 @@ export class VocabSprintGame {
     this.flushWordStats();
     this.hideNetworkToast({ clear: true });
     this.hideReviewTooltip();
+    this.clearReviewTooltipPress();
+    this.clearAnswerFocus();
     this.state.returnConfirmOpen = false;
     this.state.returnConfirmPreviousPhase = "";
     this.state.wordListOpen = false;
+    this.state.lookupOpen = false;
+    this.state.helpOpen = false;
     this.ui.returnConfirmModal?.classList.add("hidden");
     this.ui.wordListModal?.classList.add("hidden");
+    this.ui.lookupModal?.classList.add("hidden");
+    this.ui.helpModal?.classList.add("hidden");
+    this.clearLookupContent();
     this.state.phase = this.state.words.length ? "ready" : "loading";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
     this.state.gameModeId = this.selectedGameModeId();
@@ -3023,6 +3152,8 @@ export class VocabSprintGame {
     this.state.review = new Map();
     this.state.effects = [];
     this.state.recent = [];
+    this.state.countdownSecond = 0;
+    this.lastWordAudioPrefetchAt = 0;
     this.resetWordBag();
     this.state.lastTime = performance.now();
     this.makeLanes();
@@ -3043,8 +3174,14 @@ export class VocabSprintGame {
       this.audio.fadeOutBgm(650);
       this.audio.stopWordAudio();
       this.audio.releaseWordAudioPool();
+      this.audio.stopBgmPreview();
       this.flushWordStats();
       this.hideNetworkToast({ clear: true });
+      this.hideReviewTooltip();
+      this.clearReviewTooltipPress();
+      this.clearAnswerFocus();
+      this.state.countdownSecond = 0;
+      this.state.effects = [];
       this.showOverlay("Paused", "", "Resume", {
         showTitleDetails: true,
         obscureBoard: true,
@@ -3054,10 +3191,12 @@ export class VocabSprintGame {
     } else if (this.state.phase === "paused") {
       this.state.phase = "playing";
       this.state.lastTime = performance.now();
+      this.lastWordAudioPrefetchAt = 0;
       this.hideOverlay();
       this.audio.startBgm(() => this.state.phase);
       // 一時停止時に破棄した spawn タイマーの分、消えたままのレーンを補充する。
       this.respawnStalledLanes();
+      this.prefetchUpcomingWordAudio({ force: true });
       this.startRenderLoop();
     }
     this.updateUi();
@@ -3116,9 +3255,7 @@ export class VocabSprintGame {
       const size = this.canvasSize();
       const bottomBonus = Math.max(0, Math.round((1 - lane.y / (size.height - 92)) * 40));
       const gain = 100 + this.activeLevel().bonus + bottomBonus + Math.min(90, this.state.streak * 3);
-      const timeBonus = this.activeGameMode().id === "fixed"
-        ? 0
-        : this.state.settings.correctTimeBonus + this.state.streak * this.state.settings.streakTimeMultiplier;
+      const timeBonus = this.state.settings.correctTimeBonus + this.state.streak * this.state.settings.streakTimeMultiplier;
       this.state.score += gain;
       if (timeBonus > 0) {
         this.adjustTime(timeBonus);
@@ -3162,7 +3299,7 @@ export class VocabSprintGame {
       this.scheduleSpawn(laneIndex, (CARD_FADE_OUT_TIME + 0.08) * 1000);
     }
     this.updateUi();
-    this.refreshAnswerButtons();
+    this.updateLaneAnswerButtons(laneIndex);
   }
 
   missLane(laneIndex) {
@@ -3192,7 +3329,7 @@ export class VocabSprintGame {
     }
     this.scheduleSpawn(laneIndex, ANSWER_REVEAL_TIME * 1000);
     this.updateUi();
-    this.renderAnswerButtons();
+    this.updateLaneAnswerButtons(laneIndex);
   }
 
   updateGame(dt) {
@@ -3281,23 +3418,20 @@ export class VocabSprintGame {
 
     const t = now * 0.001;
     const transparent = "rgba(255, 255, 255, 0)";
-    const steps = 18;
-    const ribbons = [
-      { color: flow.coolMid, thickness: 0.36, speed: 24, freq: 1.6, sway: 0.55, seed: laneIndex * 173.3 },
-      { color: flow.warmMid, thickness: 0.28, speed: 17, freq: 2.2, sway: 0.42, seed: 91.7 + laneIndex * 211.9 },
-      { color: flow.greenSoft, thickness: 0.22, speed: 31, freq: 1.25, sway: 0.5, seed: 47.1 + laneIndex * 97.3 },
-      { color: flow.coolSoft, thickness: 0.3, speed: 12, freq: 2.8, sway: 0.35, seed: 139.4 + laneIndex * 53.7 }
-    ];
+    const steps = LANE_FLOW_STEPS;
 
     // 注意: ここで ctx.filter = "blur(...)" は使わないこと。
     // iOS Safari では Canvas filter が極端に重く、リークの報告もある（発熱・進行性劣化の原因になる）。
-    for (const ribbon of ribbons) {
+    for (const ribbon of LANE_FLOW_RIBBONS) {
+      const color = flow[ribbon.colorKey];
+      const seed = ribbon.seedBase + laneIndex * ribbon.seedStep;
       const band = height * ribbon.thickness;
       const travel = height + band * 2;
       const waveAmp = band * ribbon.sway;
+      ctx.fillStyle = color;
       for (const shift of [0, travel / 2]) {
-        const baseY = ((t * ribbon.speed + ribbon.seed + shift) % travel) - band;
-        const wavePhase = t * 0.7 + ribbon.seed + shift * 0.013;
+        const baseY = ((t * ribbon.speed + seed + shift) % travel) - band;
+        const wavePhase = t * 0.7 + seed + shift * 0.013;
         ctx.beginPath();
         for (let s = 0; s <= steps; s += 1) {
           const px = x + (laneWidth * s) / steps;
@@ -3314,7 +3448,6 @@ export class VocabSprintGame {
           ctx.lineTo(px, py);
         }
         ctx.closePath();
-        ctx.fillStyle = ribbon.color;
         ctx.fill();
       }
     }
@@ -3329,11 +3462,18 @@ export class VocabSprintGame {
     ctx.fillStyle = glow;
     ctx.fillRect(x, 0, laneWidth, height);
 
-    const veil = ctx.createLinearGradient(x, 0, x, height);
-    veil.addColorStop(0, flow.finish);
-    veil.addColorStop(0.52, transparent);
-    veil.addColorStop(1, flow.finish);
-    ctx.fillStyle = veil;
+    // 縦グラデ(veil)は縦方向のみで x に依存しない（垂直グラデはy座標だけで色が決まる）ため、
+    // サイズ・テーマが変わらない限り1つを使い回し、全レーン・全フレームで共有する。
+    const veilKey = `${Math.round(height)}|${flow.finish}`;
+    if (this.veilGradientKey !== veilKey) {
+      const veil = ctx.createLinearGradient(0, 0, 0, height);
+      veil.addColorStop(0, flow.finish);
+      veil.addColorStop(0.52, transparent);
+      veil.addColorStop(1, flow.finish);
+      this.veilGradient = veil;
+      this.veilGradientKey = veilKey;
+    }
+    ctx.fillStyle = this.veilGradient;
     ctx.fillRect(x, 0, laneWidth, height);
 
     ctx.restore();
@@ -3357,6 +3497,11 @@ export class VocabSprintGame {
     const lanes = this.activeLaneCount();
     const laneWidth = size.width / lanes;
     const now = performance.now();
+    // レーンで変わらない値はループ外で一度だけ算出する（毎レーン再計算を避ける）。
+    const guideLineY = this.guideLineY(size);
+    const guideThickness = laneWidth < 140 ? 3 : 4;
+    const guideY = guideLineY - guideThickness / 2;
+    const guideWidth = laneWidth - 24;
     for (let i = 0; i < lanes; i += 1) {
       const x = i * laneWidth;
       this.ctx.fillStyle = i % 2 === 0 ? laneBgA : laneBgB;
@@ -3370,14 +3515,15 @@ export class VocabSprintGame {
       this.ctx.lineTo(x, size.height);
       this.ctx.stroke();
 
-      const guideThickness = laneWidth < 140 ? 3 : 4;
       this.ctx.fillStyle = missLine;
-      this.ctx.fillRect(x + 12, this.guideLineY(size) - guideThickness / 2, laneWidth - 24, guideThickness);
+      this.ctx.fillRect(x + 12, guideY, guideWidth, guideThickness);
+    }
 
-      this.ctx.fillStyle = boardLabel;
-      this.ctx.font = "800 12px system-ui, sans-serif";
-      this.ctx.textAlign = "left";
-      this.ctx.fillText(`LANE ${i + 1}`, x + 16, 24);
+    this.ctx.fillStyle = boardLabel;
+    this.ctx.font = "800 12px system-ui, sans-serif";
+    this.ctx.textAlign = "left";
+    for (let i = 0; i < lanes; i += 1) {
+      this.ctx.fillText(`LANE ${i + 1}`, i * laneWidth + 16, 24);
     }
 
     this.ctx.strokeStyle = edgeLine;
@@ -3638,10 +3784,14 @@ export class VocabSprintGame {
       // テキストレイアウト（measureTextのループ）は高コストなので、
       // 文言と基準カード幅が変わらない限りレーン単位でキャッシュする。
       // フェード中の拡大縮小は描画時のフォントサイズだけに反映し、再レイアウトを避ける。
-      const cleanPrompt = this.promptTextFor(lane.word).replace(/\s+/g, " ");
-      const layoutKey = `${cleanPrompt}|${Math.round(card.width)}|${Math.round(card.height)}|${lanes}`;
-      let textLayout = lane.textLayoutKey === layoutKey ? lane.textLayout : null;
-      if (!textLayout) {
+      // 文字列（正規化した文言・キー）も毎フレーム生成しないよう lane に一度だけ保持する。
+      if (lane.cleanPrompt === undefined) {
+        lane.cleanPrompt = this.promptTextFor(lane.word).replace(/\s+/g, " ");
+      }
+      const cleanPrompt = lane.cleanPrompt;
+      const roundW = Math.round(card.width);
+      const roundH = Math.round(card.height);
+      if (!lane.textLayout || lane.textLayoutW !== roundW || lane.textLayoutH !== roundH || lane.textLayoutLanes !== lanes) {
         const textMaxWidth = card.width - (laneWidth < 130 ? 12 : 24);
         const maxLines = card.width < 118 ? 3 : 2;
         const maxFont = lanes === 1 ? 46 : lanes === 2 ? 40 : 35;
@@ -3649,12 +3799,14 @@ export class VocabSprintGame {
         const baseFont = Math.max(minBaseFont, Math.min(maxFont, card.width * 0.34));
         const minFont = lanes === 1 ? 18 : lanes === 2 ? 16 : 14;
         const visibleCharacters = Array.from(cleanPrompt.replace(/\s+/g, "")).length;
-        textLayout = visibleCharacters <= 15
+        lane.textLayout = visibleCharacters <= 15
           ? this.layoutCanvasSingleLine(cleanPrompt, textMaxWidth, card.height - 18, baseFont, Math.max(12, minFont - 2))
           : this.layoutCanvasText(cleanPrompt, textMaxWidth, card.height - 18, baseFont, maxLines, minFont);
-        lane.textLayoutKey = layoutKey;
-        lane.textLayout = textLayout;
+        lane.textLayoutW = roundW;
+        lane.textLayoutH = roundH;
+        lane.textLayoutLanes = lanes;
       }
+      const textLayout = lane.textLayout;
       this.ctx.fillStyle = alphaCardText;
       const textSize = Math.max(10, Math.round(textLayout.size * scale));
       const lineHeight = textLayout.lineHeight * scale;
@@ -4012,7 +4164,17 @@ export class VocabSprintGame {
     this.flushWordStats();
     if (this.state.phase === "playing") {
       this.pauseGame();
+      return;
     }
+    this.stopRenderLoop();
+    this.clearSpawnTimers();
+    this.audio.stopBgm();
+    this.audio.stopBgmPreview();
+    this.audio.stopWordAudio();
+    this.audio.releaseWordAudioPool();
+    this.hideNetworkToast({ clear: true });
+    this.clearReviewTooltipPress();
+    this.clearAnswerFocus();
   }
 
   attachEvents() {

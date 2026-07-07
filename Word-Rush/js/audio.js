@@ -9,6 +9,13 @@ const WORD_AUDIO_ROOT = "assets/word-audio/en-us-edge-tts";
 const WORD_AUDIO_POOL_LIMIT = 24;
 const WORD_AUDIO_PREFETCH_LIMIT = 8;
 const WORD_AUDIO_LOAD_WARNING_MS = 1400;
+const WORD_AUDIO_MANIFEST_TIMEOUT_MS = 3000;
+const WORD_AUDIO_PLAY_TIMEOUT_MS = 6500;
+const WORD_AUDIO_RETRY_COOLDOWN_MS = 30000;
+const WORD_AUDIO_RETRY_COOLDOWN_MAX_MS = 120000;
+const WORD_AUDIO_FAILURE_WINDOW_MS = 12000;
+const WORD_AUDIO_FAILURE_THRESHOLD = 3;
+const WORD_AUDIO_NETWORK_COOLDOWN_MS = 18000;
 
 export class AudioEngine {
   constructor(getSettings, bgmTracks = []) {
@@ -37,6 +44,9 @@ export class AudioEngine {
     this.wordAudioLoadMonitors = new Set();
     this.wordAudioQueueToken = 0;
     this.wordAudioStatusHandler = null;
+    this.wordAudioFailures = new Map();
+    this.wordAudioFailureTimes = [];
+    this.wordAudioNetworkCooldownUntil = 0;
     this.noiseBuffer = null;
     this.ctx = null;
     this.master = null;
@@ -107,11 +117,19 @@ export class AudioEngine {
     return `${WORD_AUDIO_ROOT}/${level}/${id}.mp3${version}`;
   }
 
+  // ページロード時に1回だけ呼ぶ。単語音声の再生・プリロードごとにmanifestを見に行かない。
   ensureWordAudioRevision() {
     if (this.wordAudioRevisionReady) {
       return this.wordAudioRevisionReady;
     }
-    this.wordAudioRevisionReady = fetch("cache-manifest.json", { cache: "no-store" })
+    const controller = globalThis.AbortController ? new AbortController() : null;
+    const timeout = controller
+      ? setTimeout(() => controller.abort(), WORD_AUDIO_MANIFEST_TIMEOUT_MS)
+      : 0;
+    this.wordAudioRevisionReady = fetch("cache-manifest.json", {
+      cache: "no-store",
+      signal: controller?.signal
+    })
       .then((response) => {
         if (!response.ok) {
           throw new Error("cache-manifest load failed");
@@ -128,12 +146,139 @@ export class AudioEngine {
       .catch(() => {
         this.wordAudioRevision = "";
         return "";
+      })
+      .finally(() => {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
       });
     return this.wordAudioRevisionReady;
   }
 
+  wordAudioConnectionIsConstrained() {
+    const connection = globalThis.navigator?.connection;
+    if (!connection) {
+      return false;
+    }
+    return Boolean(connection.saveData)
+      || connection.effectiveType === "slow-2g"
+      || connection.effectiveType === "2g";
+  }
+
+  pruneWordAudioFailures(now = Date.now()) {
+    this.wordAudioFailureTimes = this.wordAudioFailureTimes
+      .filter((time) => now - time <= WORD_AUDIO_FAILURE_WINDOW_MS);
+    for (const [url, entry] of this.wordAudioFailures) {
+      if (!entry?.retryAt || entry.retryAt <= now) {
+        this.wordAudioFailures.delete(url);
+      }
+    }
+    if (this.wordAudioNetworkCooldownUntil <= now) {
+      this.wordAudioNetworkCooldownUntil = 0;
+    }
+  }
+
+  wordAudioNetworkCoolingDown(now = Date.now()) {
+    this.pruneWordAudioFailures(now);
+    return this.wordAudioNetworkCooldownUntil > now;
+  }
+
+  wordAudioUrlCoolingDown(url, now = Date.now()) {
+    if (!url) {
+      return true;
+    }
+    this.pruneWordAudioFailures(now);
+    if (this.wordAudioNetworkCooldownUntil > now) {
+      return true;
+    }
+    const entry = this.wordAudioFailures.get(url);
+    return Boolean(entry?.retryAt && entry.retryAt > now);
+  }
+
+  canPrefetchWordAudio() {
+    return this.wordAudioEnabled()
+      && Boolean(globalThis.Audio)
+      && !this.wordAudioConnectionIsConstrained()
+      && !this.wordAudioNetworkCoolingDown();
+  }
+
+  markWordAudioReady(url) {
+    if (url) {
+      this.wordAudioFailures.delete(url);
+    }
+    this.wordAudioFailureTimes = [];
+    this.wordAudioNetworkCooldownUntil = 0;
+  }
+
+  markWordAudioProblem(url) {
+    const now = Date.now();
+    if (url) {
+      const current = this.wordAudioFailures.get(url);
+      const count = Math.min(4, (current?.count || 0) + 1);
+      const cooldown = Math.min(
+        WORD_AUDIO_RETRY_COOLDOWN_MAX_MS,
+        WORD_AUDIO_RETRY_COOLDOWN_MS * count
+      );
+      this.wordAudioFailures.set(url, {
+        count,
+        retryAt: now + cooldown
+      });
+    }
+    this.wordAudioFailureTimes = this.wordAudioFailureTimes
+      .filter((time) => now - time <= WORD_AUDIO_FAILURE_WINDOW_MS);
+    this.wordAudioFailureTimes.push(now);
+    if (this.wordAudioFailureTimes.length >= WORD_AUDIO_FAILURE_THRESHOLD) {
+      this.wordAudioNetworkCooldownUntil = Math.max(
+        this.wordAudioNetworkCooldownUntil,
+        now + WORD_AUDIO_NETWORK_COOLDOWN_MS
+      );
+    }
+  }
+
+  releaseAudioElement(audio) {
+    if (!audio) {
+      return;
+    }
+    audio.pause();
+    audio.removeAttribute("src");
+    try {
+      audio.load();
+    } catch {
+      // Some mobile browsers throw if load() races with resource teardown.
+    }
+  }
+
+  releaseWordAudioEntry(url, entry, options = {}) {
+    if (!entry?.audio) {
+      if (url) {
+        this.wordAudioPool.delete(url);
+      }
+      return;
+    }
+    if (options.cleanupActive) {
+      this.wordAudioCleanup.get(entry.audio)?.("cancel");
+    }
+    if (typeof entry.dispose === "function") {
+      entry.dispose();
+    }
+    this.releaseAudioElement(entry.audio);
+    if (url) {
+      this.wordAudioPool.delete(url);
+    }
+  }
+
+  loadAudioElement(audio, url) {
+    try {
+      audio.load();
+      return true;
+    } catch {
+      this.markWordAudioProblem(url);
+      return false;
+    }
+  }
+
   ensureWordAudio(url, preload = "metadata") {
-    if (!url || !globalThis.Audio) {
+    if (!url || !globalThis.Audio || this.wordAudioUrlCoolingDown(url)) {
       return null;
     }
     let entry = this.wordAudioPool.get(url);
@@ -143,18 +288,35 @@ export class AudioEngine {
       audio.src = url;
       entry = {
         audio,
-        lastUsed: performance.now()
+        lastUsed: performance.now(),
+        dispose: null
+      };
+      const ready = () => this.markWordAudioReady(url);
+      const error = () => {
+        if (this.wordAudioActive.has(audio)) {
+          return;
+        }
+        this.markWordAudioProblem(url);
+        this.releaseWordAudioEntry(url, entry);
+      };
+      audio.addEventListener("canplay", ready);
+      audio.addEventListener("playing", ready);
+      audio.addEventListener("error", error);
+      entry.dispose = () => {
+        audio.removeEventListener("canplay", ready);
+        audio.removeEventListener("playing", ready);
+        audio.removeEventListener("error", error);
       };
       this.wordAudioPool.set(url, entry);
       if (preload !== "none") {
-        audio.load();
+        this.loadAudioElement(audio, url);
       }
       this.evictWordAudioPool();
     } else {
       entry.lastUsed = performance.now();
       if (preload === "auto" && entry.audio.preload !== "auto") {
         entry.audio.preload = "auto";
-        entry.audio.load();
+        this.loadAudioElement(entry.audio, url);
       }
     }
     return entry.audio;
@@ -169,9 +331,7 @@ export class AudioEngine {
       .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
     while (this.wordAudioPool.size > WORD_AUDIO_POOL_LIMIT && entries.length) {
       const [url, entry] = entries.shift();
-      entry.audio.removeAttribute("src");
-      entry.audio.load();
-      this.wordAudioPool.delete(url);
+      this.releaseWordAudioEntry(url, entry);
     }
     // 安全弁: 再生停滞などで paused にならない要素が居座ると上限が効かず
     // Audio要素が増殖するため、それでも超過している場合は最古のものを強制解放する。
@@ -180,11 +340,7 @@ export class AudioEngine {
         .sort((a, b) => a[1].lastUsed - b[1].lastUsed);
       while (this.wordAudioPool.size > WORD_AUDIO_POOL_LIMIT && leftovers.length) {
         const [url, entry] = leftovers.shift();
-        entry.audio.pause();
-        this.wordAudioCleanup.get(entry.audio)?.();
-        entry.audio.removeAttribute("src");
-        entry.audio.load();
-        this.wordAudioPool.delete(url);
+        this.releaseWordAudioEntry(url, entry, { cleanupActive: true });
       }
     }
   }
@@ -194,14 +350,16 @@ export class AudioEngine {
   // 必要になれば ensureWordAudio が作り直すので機能への影響はない。
   releaseWordAudioPool() {
     this.stopWordAudio();
-    for (const entry of this.wordAudioPool.values()) {
-      entry.audio.removeAttribute("src");
-      entry.audio.load();
+    for (const [url, entry] of Array.from(this.wordAudioPool.entries())) {
+      this.releaseWordAudioEntry(url, entry);
     }
     this.wordAudioPool.clear();
   }
 
   playableWordAudio(url) {
+    if (this.wordAudioUrlCoolingDown(url)) {
+      return null;
+    }
     const audio = this.ensureWordAudio(url, "auto");
     if (!audio) {
       return null;
@@ -236,7 +394,7 @@ export class AudioEngine {
       audio.removeEventListener("playing", ready);
       audio.removeEventListener("error", error);
       this.wordAudioLoadMonitors.delete(clear);
-      if (warned) {
+      if (warned && type !== "cancel") {
         this.emitWordAudioStatus({ type, url });
       }
     };
@@ -258,19 +416,19 @@ export class AudioEngine {
     return clear;
   }
 
-  clearWordAudioLoadMonitors() {
+  clearWordAudioLoadMonitors(type = "cancel") {
     for (const clear of Array.from(this.wordAudioLoadMonitors)) {
-      clear("error");
+      clear(type);
     }
     this.wordAudioLoadMonitors.clear();
   }
 
-  trackWordAudio(audio, maxMs = 8000, onCleanup = null) {
+  trackWordAudio(audio, maxMs = 8000, onCleanup = null, url = "") {
     this.wordAudioActive.add(audio);
     // ended/error が発火しないまま停滞した場合の watchdog。
     // これが無いと wordAudioActive にAudio要素が溜まり続け、プールの追い出しも効かなくなる。
     let watchdog = 0;
-    const cleanup = () => {
+    const cleanup = (reason = "ended") => {
       if (watchdog) {
         clearTimeout(watchdog);
         watchdog = 0;
@@ -280,34 +438,43 @@ export class AudioEngine {
       if (this.wordAudioCurrent === audio) {
         this.wordAudioCurrent = null;
       }
-      audio.removeEventListener("ended", cleanup);
-      audio.removeEventListener("error", cleanup);
+      audio.removeEventListener("ended", ended);
+      audio.removeEventListener("error", error);
+      const sourceUrl = url || audio.currentSrc || audio.src;
+      if (reason === "ended" || reason === "ready") {
+        this.markWordAudioReady(sourceUrl);
+      } else if (reason === "error" || reason === "timeout") {
+        this.markWordAudioProblem(sourceUrl);
+      }
       if (typeof onCleanup === "function") {
-        onCleanup();
+        onCleanup(reason);
       }
       if (this.wordAudioTransient.has(audio)) {
-        audio.removeAttribute("src");
-        audio.load();
+        this.releaseAudioElement(audio);
       }
     };
     watchdog = setTimeout(() => {
       watchdog = 0;
       audio.pause();
-      cleanup();
+      cleanup("timeout");
     }, maxMs);
+    const ended = () => cleanup("ended");
+    const error = () => cleanup("error");
     this.wordAudioCleanup.set(audio, cleanup);
-    audio.addEventListener("ended", cleanup, { once: true });
-    audio.addEventListener("error", cleanup, { once: true });
+    audio.addEventListener("ended", ended, { once: true });
+    audio.addEventListener("error", error, { once: true });
     return cleanup;
   }
 
   preloadWordAudio(urls, options = {}) {
-    if (!this.wordAudioEnabled() || !globalThis.Audio) {
+    if (!this.canPrefetchWordAudio()) {
       return;
     }
     const preload = options.preload || "metadata";
     const limit = Math.max(1, Math.min(WORD_AUDIO_PREFETCH_LIMIT, Number(options.limit) || WORD_AUDIO_PREFETCH_LIMIT));
-    const unique = [...new Set((Array.isArray(urls) ? urls : [urls]).filter(Boolean))].slice(0, limit);
+    const unique = [...new Set((Array.isArray(urls) ? urls : [urls]).filter(Boolean))]
+      .filter((url) => !this.wordAudioUrlCoolingDown(url))
+      .slice(0, limit);
     for (const url of unique) {
       this.ensureWordAudio(url, preload);
     }
@@ -324,14 +491,14 @@ export class AudioEngine {
     this.clearWordAudioTimers();
     this.clearWordAudioLoadMonitors();
     this.wordAudioQueueToken += 1;
-    for (const audio of this.wordAudioActive) {
+    for (const audio of Array.from(this.wordAudioActive)) {
       audio.pause();
       try {
         audio.currentTime = 0;
       } catch {
         // Some mobile browsers reject currentTime changes before metadata exists.
       }
-      this.wordAudioCleanup.get(audio)?.();
+      this.wordAudioCleanup.get(audio)?.("cancel");
     }
     this.wordAudioActive.clear();
     this.wordAudioCleanup.clear();
@@ -375,12 +542,14 @@ export class AudioEngine {
       // Metadata may not be ready yet.
     }
     const clearLoadMonitor = this.monitorWordAudioLoad(audio, url);
-    const cleanup = this.trackWordAudio(audio, 8000, () => clearLoadMonitor("error"));
+    const cleanup = this.trackWordAudio(audio, WORD_AUDIO_PLAY_TIMEOUT_MS, (reason) => {
+      clearLoadMonitor(reason === "cancel" ? "cancel" : reason === "ended" ? "ready" : "error");
+    }, url);
     audio.play().then(() => {
       clearLoadMonitor("ready");
     }).catch(() => {
       clearLoadMonitor("error");
-      cleanup();
+      cleanup("error");
       // User gesture and autoplay rules can still block media on some browsers.
     });
   }
@@ -491,9 +660,13 @@ export class AudioEngine {
         audio.removeEventListener("ended", finishReady);
         audio.removeEventListener("error", finishError);
         clearTimeout(timer);
+        if (type === "ready") {
+          this.markWordAudioReady(url);
+        } else if (type === "error") {
+          this.markWordAudioProblem(url);
+        }
         if (this.wordAudioTransient.has(audio)) {
-          audio.removeAttribute("src");
-          audio.load();
+          this.releaseAudioElement(audio);
         }
         resolve();
       };
@@ -832,7 +1005,7 @@ export class AudioEngine {
       this.master.gain.value = this.sfxVolume();
     }
     if (!this.wordAudioEnabled()) {
-      this.stopWordAudio();
+      this.releaseWordAudioPool();
     } else {
       const volume = this.wordAudioVolume();
       for (const audio of this.wordAudioActive) {
