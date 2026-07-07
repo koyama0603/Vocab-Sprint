@@ -31,9 +31,9 @@ MyShortcuts App Gallery 配布用の単体HTML:
 
 - 本番URL: `https://wordrush.myshortcuts.workers.dev/`
 - Cloudflare Workers Assets 設定: `Word-Rush\wrangler.jsonc`
-- 直近の本番デプロイ Version ID（wrangler出力で最後に記録済み）: `263b4aaa-db38-41be-ad7b-7f9eca3b72a0`
-- 2026-07-08時点で、公開中の `cache-manifest.json` version はローカルと同じ `379504c97cdc8adb`。
-- 最新アプリ変更コミットは `c186a1a Reuse word audio elements`。
+- 直近の本番デプロイ Version ID（wrangler出力で最後に記録済み）: `811aedd5-d76b-4213-b6aa-a6d746cb1108`
+- 2026-07-08時点で、公開中の `cache-manifest.json` version はローカルと同じ `52dbd0c9395acf7e`。
+- 最新アプリ変更コミットは `4dbe395 Reuse transient word audio elements`。
 - 最新コードは本番へ反映済み、GitHubにもpush済み（`main` ブランチ）。
 - `appgallery-single-html/index.html` はこの一連の通常サイト作業では未変更。
 - ユーザーの明示指示がある時だけCloudflareへデプロイする。通常の修正・確認だけで自発的にデプロイしない。
