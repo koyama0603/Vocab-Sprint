@@ -27,10 +27,10 @@ const CARD_FADE_OUT_TIME = 0.24;
 const ANSWER_REVEAL_TIME = 1.12;
 const REVIEW_TOOLTIP_LONG_PRESS_MS = 520;
 const REVIEW_TOOLTIP_TOUCH_MOVE_CANCEL = 10;
-const WORD_AUDIO_START_DELAY_MS = 260;
+const WORD_AUDIO_START_DELAY_MS = 220;
 // 開始時の複数レーン発音は「順次再生」（前の発音が実際に終わってから次）にし、
 // 端末の再生開始レイテンシに関係なく重ならないようにする。この値は各発音終了後の最低の間。
-const WORD_AUDIO_START_GAP_MS = 240;
+const WORD_AUDIO_START_GAP_MS = 75;
 const WORD_AUDIO_START_MAX_ITEM_MS = 2600;
 // 結果画面をフェードイン表示している間、ボタンを押せなくしておく時間（終了間際の誤タップ防止）。
 const RESULT_INTRO_LOCK_MS = 750;
@@ -51,6 +51,13 @@ const LANE_FLOW_RIBBONS = [
   { colorKey: "greenSoft", thickness: 0.22, speed: 31, freq: 1.25, sway: 0.5, seedBase: 47.1, seedStep: 97.3 }
 ];
 const DEFAULT_GAME_MODE_ID = "rush";
+const DEFAULT_WORD_LIST_SORT = { key: "", direction: "asc" };
+const WORD_LIST_SORT_COLUMNS = [
+  { key: "word", label: "単語", defaultDirection: "asc" },
+  { key: "", label: "意味" },
+  { key: "correct", label: "正答", defaultDirection: "desc" },
+  { key: "incorrect", label: "誤答", defaultDirection: "desc" }
+];
 const FADE_MODE_VISIBLE_RATIO = 0.3;
 const GAME_MODES = [
   {
@@ -292,7 +299,8 @@ export class VocabSprintGame {
       lookupClose: document.getElementById("lookupCloseButton"),
       lookupFrame: document.getElementById("lookupFrame"),
       lookupNote: document.getElementById("lookupNote"),
-      youglishHost: document.getElementById("youglishWidgetHost")
+      youglishHost: document.getElementById("youglishWidgetHost"),
+      copyToast: document.getElementById("copyToast")
     };
 
     const preferences = this.readPreferences();
@@ -344,6 +352,7 @@ export class VocabSprintGame {
       returnConfirmOpen: false,
       returnConfirmPreviousPhase: "",
       wordListOpen: false,
+      wordListSort: { ...DEFAULT_WORD_LIST_SORT },
       helpOpen: false,
       rngSeed: 1,
       loadError: ""
@@ -374,6 +383,7 @@ export class VocabSprintGame {
     this.wordStatsDirty = false;
     this.slowWordAudioUrls = new Set();
     this.lastWordAudioPrefetchAt = 0;
+    this.copyToastTimer = 0;
     // カード再出現の setTimeout を管理する。放置すると一時停止/リスタートを跨いで発火し、
     // レーン喪失や新ゲームのカード差し替えを起こすため、状態遷移時に必ずクリアする。
     this.spawnTimers = new Set();
@@ -871,14 +881,12 @@ export class VocabSprintGame {
     const fragment = document.createDocumentFragment();
     const header = document.createElement("div");
     header.className = "word-list-row word-list-header-row";
-    for (const label of ["単語", "意味", "正答", "誤答"]) {
-      const cell = document.createElement("span");
-      cell.textContent = label;
-      header.appendChild(cell);
+    for (const column of WORD_LIST_SORT_COLUMNS) {
+      header.appendChild(this.createWordListHeaderCell(column));
     }
     fragment.appendChild(header);
 
-    for (const word of this.state.words) {
+    for (const word of this.sortedWordListWords()) {
       const stats = this.wordStatFor(word);
       const row = document.createElement("div");
       row.className = "word-list-row";
@@ -909,6 +917,69 @@ export class VocabSprintGame {
     }
 
     table.replaceChildren(fragment);
+  }
+
+  createWordListHeaderCell(column) {
+    const cell = document.createElement("span");
+    if (!column.key) {
+      cell.textContent = column.label;
+      return cell;
+    }
+
+    const button = document.createElement("button");
+    button.className = "word-list-sort-button";
+    button.type = "button";
+    const isActive = this.state.wordListSort.key === column.key;
+    const direction = isActive ? this.state.wordListSort.direction : column.defaultDirection;
+    button.dataset.direction = direction;
+    button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    button.setAttribute(
+      "aria-label",
+      `${column.label}で${direction === "desc" ? "降順" : "昇順"}に並び替え`
+    );
+    const label = document.createElement("span");
+    label.textContent = column.label;
+    const arrow = document.createElement("span");
+    arrow.className = "word-list-sort-arrow";
+    arrow.textContent = direction === "desc" ? "↓" : "↑";
+    button.append(label, arrow);
+    button.addEventListener("click", () => this.setWordListSort(column));
+    cell.appendChild(button);
+    return cell;
+  }
+
+  setWordListSort(column) {
+    if (!column?.key) {
+      return;
+    }
+    const current = this.state.wordListSort;
+    const direction = current.key === column.key
+      ? (current.direction === "asc" ? "desc" : "asc")
+      : column.defaultDirection;
+    this.state.wordListSort = { key: column.key, direction };
+    this.renderWordListModal();
+  }
+
+  sortedWordListWords() {
+    const sort = this.state.wordListSort || DEFAULT_WORD_LIST_SORT;
+    const words = this.state.words.map((word, index) => ({ word, index }));
+    if (!sort.key) {
+      return words.map((entry) => entry.word);
+    }
+    const direction = sort.direction === "desc" ? -1 : 1;
+    const compareText = (a, b) => String(a || "").localeCompare(String(b || ""), "en", { sensitivity: "base" });
+    words.sort((a, b) => {
+      let result = 0;
+      if (sort.key === "word") {
+        result = compareText(a.word.english, b.word.english);
+      } else if (sort.key === "correct") {
+        result = this.wordStatFor(a.word).correct - this.wordStatFor(b.word).correct;
+      } else if (sort.key === "incorrect") {
+        result = this.wordStatFor(a.word).incorrect - this.wordStatFor(b.word).incorrect;
+      }
+      return result * direction || a.index - b.index;
+    });
+    return words.map((entry) => entry.word);
   }
 
   requestReturnToTitle() {
@@ -2244,7 +2315,7 @@ export class VocabSprintGame {
       englishText.className = "review-word-text";
       englishText.textContent = item.english;
       // 英単語コピー（PCのみCSSで表示）。
-      const wordCopy = this.createCopyButton(() => item.english, "英単語をコピー", "review-copy");
+      const wordCopy = this.createCopyButton(() => item.english, "英単語をコピー", "review-copy", "word");
       english.append(wordAudioButton, englishText, wordCopy);
       const japanese = document.createElement("span");
       japanese.className = "review-meaning";
@@ -2327,7 +2398,7 @@ export class VocabSprintGame {
     title.className = "review-tooltip-title";
     const titleText = document.createElement("span");
     titleText.className = "review-tooltip-title-text";
-    const titleCopy = this.createCopyButton(() => this.reviewTooltip?.copyWord || "", "英単語をコピー", "tooltip-copy");
+    const titleCopy = this.createCopyButton(() => this.reviewTooltip?.copyWord || "", "英単語をコピー", "tooltip-copy", "word");
     title.append(titleText, titleCopy);
 
     const detail = document.createElement("div");
@@ -2338,7 +2409,7 @@ export class VocabSprintGame {
     sample.className = "review-tooltip-sample";
     const sampleText = document.createElement("span");
     sampleText.className = "review-tooltip-sample-text";
-    const sampleCopy = this.createCopyButton(() => this.reviewTooltip?.copySample || "", "例文をコピー", "tooltip-copy");
+    const sampleCopy = this.createCopyButton(() => this.reviewTooltip?.copySample || "", "例文をコピー", "tooltip-copy", "sentence");
     sample.append(sampleText, sampleCopy);
 
     const sampleJpn = document.createElement("div");
@@ -2555,7 +2626,7 @@ export class VocabSprintGame {
       sample.className = "review-detail-sample";
       sample.textContent = `例: ${sampleText}${sampleJpnText ? `（${sampleJpnText}）` : ""}`;
       // 英語例文コピー（PCのみCSSで表示）。例文（英語）だけをコピーする。
-      const sampleCopy = this.createCopyButton(() => sampleText, "例文をコピー", "review-copy");
+      const sampleCopy = this.createCopyButton(() => sampleText, "例文をコピー", "review-copy", "sentence");
       sample.appendChild(sampleCopy);
       body.appendChild(sample);
     }
@@ -2603,7 +2674,7 @@ export class VocabSprintGame {
 
   // テキストをクリップボードへコピーするボタン。getText は表示時点のテキストを返す関数。
   // extraClass で PC専用 / モバイル専用の表示切替（CSS）を分ける。
-  createCopyButton(getText, label, extraClass) {
+  createCopyButton(getText, label, extraClass, copyKind = "") {
     const button = document.createElement("button");
     button.className = `copy-text-button${extraClass ? ` ${extraClass}` : ""}`;
     button.type = "button";
@@ -2627,12 +2698,12 @@ export class VocabSprintGame {
     button.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      this.copyTextToClipboard(getText(), button);
+      this.copyTextToClipboard(getText(), button, copyKind);
     });
     return button;
   }
 
-  copyTextToClipboard(text, button) {
+  copyTextToClipboard(text, button, copyKind = "") {
     const value = String(text || "");
     if (!value) {
       return;
@@ -2644,6 +2715,9 @@ export class VocabSprintGame {
       button.classList.add("is-copied");
       window.clearTimeout(button.copyFeedbackTimer);
       button.copyFeedbackTimer = window.setTimeout(() => button.classList.remove("is-copied"), 1000);
+      this.showCopyToast(copyKind === "sentence"
+        ? "英文をクリップボードにコピーしました"
+        : "単語をクリップボードにコピーしました");
     };
     const writer = globalThis.navigator?.clipboard?.writeText?.bind(globalThis.navigator.clipboard);
     if (writer) {
@@ -2651,6 +2725,19 @@ export class VocabSprintGame {
     } else {
       this.fallbackCopyText(value, onDone);
     }
+  }
+
+  showCopyToast(message) {
+    if (!this.ui.copyToast) {
+      return;
+    }
+    this.ui.copyToast.textContent = message;
+    this.ui.copyToast.classList.remove("hidden");
+    window.clearTimeout(this.copyToastTimer);
+    this.copyToastTimer = window.setTimeout(() => {
+      this.copyToastTimer = 0;
+      this.ui.copyToast?.classList.add("hidden");
+    }, 1000);
   }
 
   fallbackCopyText(value, onDone) {
