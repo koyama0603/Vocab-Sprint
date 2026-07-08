@@ -30,10 +30,10 @@ const REVIEW_TOOLTIP_TOUCH_MOVE_CANCEL = 10;
 const WORD_AUDIO_START_DELAY_MS = 220;
 // 開始時の複数レーン発音は「順次再生」（前の発音が実際に終わってから次）にし、
 // 端末の再生開始レイテンシに関係なく重ならないようにする。この値は各発音終了後の最低の間。
-const WORD_AUDIO_START_GAP_MS = 75;
+const WORD_AUDIO_START_GAP_MS = 38;
 const WORD_AUDIO_START_MAX_ITEM_MS = 2600;
 // 結果画面をフェードイン表示している間、ボタンを押せなくしておく時間（終了間際の誤タップ防止）。
-const RESULT_INTRO_LOCK_MS = 750;
+const RESULT_INTRO_LOCK_MS = 900;
 const WORD_AUDIO_SPAWN_DELAY_MS = 90;
 const WORD_AUDIO_PREFETCH_COUNT = 6;
 const WORD_AUDIO_PREFETCH_INTERVAL_MS = 2400;

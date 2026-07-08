@@ -1143,6 +1143,11 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   animation: overlayPanelFadeIn 320ms ease both;
 }
 
+.overlay.result-mode.fade-in,
+.overlay.result-mode.fade-in .overlay-panel {
+  animation-delay: 120ms;
+}
+
 /* 結果画面フェードイン中はボタンを押せなくする（終了間際のタップ誤爆防止）。 */
 .overlay.result-intro .overlay-actions,
 .overlay.result-intro .result-close-button,
@@ -3049,7 +3054,7 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   max-height: min(560px, calc(100svh - max(98px, calc(env(safe-area-inset-top) + 86px))));
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -3156,6 +3161,18 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   font-size: 13px;
   font-weight: 760;
   line-height: 1.5;
+}
+
+.help-cache-note {
+  margin: 0;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  opacity: 0.78;
 }
 
 .lookup-modal {
@@ -4683,13 +4700,30 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 }
 
 @media (max-width: 620px) {
+  .help-modal {
+    place-items: stretch center;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .help-window {
+    width: 100%;
+    height: calc(100svh - max(8px, env(safe-area-inset-top)) - max(6px, env(safe-area-inset-bottom)));
+    height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(6px, env(safe-area-inset-bottom)));
+    max-height: calc(100svh - max(8px, env(safe-area-inset-top)) - max(6px, env(safe-area-inset-bottom)));
+    max-height: calc(100dvh - max(8px, env(safe-area-inset-top)) - max(6px, env(safe-area-inset-bottom)));
+  }
+
+  .help-cache-note {
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
   body.is-standalone .app {
-    padding-bottom: 4px;
-    padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 12px));
+    height: 100dvh;
+    padding-bottom: 0;
   }
 
   body.is-standalone .word-list-modal {
-    padding-bottom: 6px;
-    padding-bottom: max(6px, calc(env(safe-area-inset-bottom) - 10px));
+    padding-bottom: 2px;
+    padding-bottom: max(2px, calc(env(safe-area-inset-bottom) - 18px));
   }
 }
