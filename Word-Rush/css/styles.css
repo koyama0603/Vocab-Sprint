@@ -1119,6 +1119,19 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   animation: overlayPanelFadeIn 320ms ease both;
 }
 
+/* 結果画面フェードイン中はボタンを押せなくする（終了間際のタップ誤爆防止）。 */
+.overlay.result-intro .overlay-actions,
+.overlay.result-intro .result-close-button,
+.overlay.result-intro .review-list {
+  pointer-events: none;
+}
+
+.overlay.result-intro .overlay-actions,
+.overlay.result-intro .result-close-button {
+  opacity: 0.55;
+  transition: opacity 160ms ease;
+}
+
 body.is-game-resting .answers *,
 body.is-game-resting .loading-veil *,
 body.is-game-resting .countdown-ghost,
@@ -1893,10 +1906,33 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   padding-right: 4px;
 }
 
+/* 結果画面のグラフは result-mode のときだけ表示。それ以外の画面では隠す。 */
+.result-chart-region {
+  display: none;
+}
+
+.overlay.result-mode .result-chart-region {
+  flex: 0 0 auto;
+  display: block;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.overlay.result-mode .result-chart-region .title-chart {
+  gap: 6px;
+}
+
+/* 結果画面は上に詰める（パネルを上寄せ）。 */
+.overlay.result-mode {
+  align-items: start;
+  padding-top: max(10px, env(safe-area-inset-top));
+}
+
 .overlay.result-mode .overlay-panel {
   position: relative;
   width: min(640px, 100%);
-  max-height: min(720px, calc(100% - 16px));
+  max-height: min(760px, calc(100% - 12px));
   padding: 10px 12px;
 }
 
@@ -2339,9 +2375,16 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
 .review-tooltip-title {
   margin-bottom: 6px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   color: var(--ink);
   font-size: 33px;
   font-weight: 950;
+}
+
+.review-tooltip-title-text {
+  min-width: 0;
 }
 
 .review-tooltip-detail {
@@ -2353,10 +2396,84 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
 
 .review-tooltip-sample {
   margin-top: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   color: var(--ink);
   font-size: 25px;
   font-weight: 860;
   line-height: 1.32;
+}
+
+.review-tooltip-sample-text {
+  min-width: 0;
+}
+
+/* コピーボタン共通 */
+.copy-text-button {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--control-bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.copy-text-button svg {
+  width: 60%;
+  height: 60%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.copy-text-button:hover:not(:disabled) {
+  border-color: var(--cyan);
+  color: var(--ink);
+}
+
+.copy-text-button.is-copied {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+/* ツールチップ内のコピーボタン: タップ/情報ボタン経由で開いた（＝モバイル文脈）ときだけ表示。
+   PCのホバー表示ツールチップは has-close が付かないので表示されない。 */
+.review-tooltip .copy-text-button.tooltip-copy {
+  display: none;
+  width: 34px;
+  height: 34px;
+  margin-top: 2px;
+}
+
+.review-tooltip.has-close .copy-text-button.tooltip-copy {
+  display: inline-grid;
+}
+
+/* 出題リストのコピーボタン: PC（hover可・細ポインタ・広幅）のときだけ表示。スマホ/狭幅では隠す。 */
+.copy-text-button.review-copy {
+  display: none;
+  width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .overlay.result-mode .copy-text-button.review-copy {
+    display: inline-grid;
+  }
+}
+
+@media (max-width: 620px) {
+  .overlay.result-mode .copy-text-button.review-copy {
+    display: none;
+  }
 }
 
 .review-tooltip-sample-jpn {
@@ -2892,27 +3009,24 @@ body.can-install .overlay.title-mode .pwa-install-button:not(.hidden) {
   min-width: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   border-bottom: 1px solid var(--line);
 }
 
-.lookup-header h2 {
-  min-width: 0;
-  margin: 2px 0 0;
-  overflow: hidden;
-  color: var(--ink);
-  font-size: 18px;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+/* 単語見出しは表示しない（Closeが切れる問題の回避）。a11y用にスクリーンリーダーのみ残す。 */
 .lookup-service {
-  color: var(--gold);
-  font-size: 11px;
-  font-weight: 900;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 .lookup-actions {

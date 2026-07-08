@@ -293,6 +293,8 @@ npx --yes wrangler@latest deploy
 - 「ゲームを続けると重くなる」の実測結論（2026-07時点）: JSヒープ・DOMノードは長時間プレイでも安定（リークなし）。犯人は**単語音声の Audio 要素を毎スポーン作り直していた create/destroy churn**（iOSのネイティブ音声資源を消耗）。**集中/じっくりで顕著だったのは、これらのモードは1ゲームが長引きやすく churn の総量が増えるため**（コード自体はモード非依存）。再現・計測は「単語音声ON」で行うこと（`wordAudioEnabled` を localStorage に false 保存したまま計測すると生成0になり誤診する）。
 - 一時停止・ゲーム終了・タイトル復帰時は `releaseWordAudioPool()` で全解放する（プール要素と一時再生リングの両方。長時間ポーズ中に資源を掴み続けない）。必要になれば作り直すので機能影響はない。次ゲーム開始時にプールを再充填するため開始直後に約24個生成されるが、その後は再利用で0になる（一時的コストで churn ではない）。
 - 先読み（`prefetchUpcomingWordAudio` → `preloadWordAudio`）も `ensureWordAudio` 経由なので、上記の再利用により Audio 生成は頭打ちに含まれる。プリフェッチを fetch ベースのキャッシュ温めに変える案は効果が薄く（生成の主因は再生側）、複雑さに見合わないため採用しない。
+- iOSのNow Playing（Dynamic Island/ロック画面）抑止: `main.js` でページロード時に `navigator.audioSession.type = "ambient"` を設定している。これでゲーム音が「メディア再生」として登録されず、単語発音のたびにNow Playingが点滅したりロック画面に再生コントロールが出るのを防ぐ。可視状態復帰時にも再適用。未対応環境（PC/Android）では no-op。トレードオフ: `ambient` は消音（サイレント）スイッチONで音が鳴らない（ゲームとして自然な挙動）。「playback」に戻すとNow Playingが復活するので戻さないこと。
+- 電波劣化時の先読みバックオフ: ロードが遅い（`monitorWordAudioLoad` の警告=1400msでまだ未ロード）と `markWordAudioSlow()` が `wordAudioSlowUntil` を立て、`canPrefetchWordAudio()` が `WORD_AUDIO_SLOW_BACKOFF_MS`（8秒）先読みを止める。ロードが成功する（`markWordAudioReady`）と即解除。これで電波が悪いときに遅いロードを積み増して端末を圧迫するのを防ぐ（現在再生する語は `ensureWordAudio` 直呼びで先読みゲートに掛からないので再生は継続する）。ゲームのrAFループは音声ロードを await しないため、電波劣化でフレームが直接止まることはない（積み増しによる端末負荷が主因）。
 
 ### タイマー・状態のライフサイクル
 

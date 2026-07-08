@@ -158,6 +158,24 @@
               <p id="overlayCopy">Loading</p>
               <button class="result-close-button hidden" id="resultCloseButton" type="button" aria-label="結果画面を閉じる">Close</button>
             </div>
+            <div class="result-chart-region" aria-label="このレベルの学習率と正答率">
+              <div class="title-chart">
+                <div class="title-chart-row">
+                  <span>学習済み</span>
+                  <div class="title-chart-track" aria-hidden="true">
+                    <i id="resultLearnedBar"></i>
+                  </div>
+                  <strong id="resultLearnedRate">0%</strong>
+                </div>
+                <div class="title-chart-row">
+                  <span>正答率</span>
+                  <div class="title-chart-track" aria-hidden="true">
+                    <i id="resultAccuracyBar"></i>
+                  </div>
+                  <strong id="resultAccuracyRate">0%</strong>
+                </div>
+              </div>
+            </div>
             <div class="overlay-scroll">
               <div class="title-details" id="titleDetails">
                 <input id="levelSelect" type="hidden" value="a1-part1">
@@ -406,14 +424,11 @@
       </section>
     </div>
 
-    <div class="lookup-modal hidden" id="lookupModal" role="dialog" aria-modal="true" aria-labelledby="lookupTitle">
+    <div class="lookup-modal hidden" id="lookupModal" role="dialog" aria-modal="true" aria-labelledby="lookupService">
       <div class="lookup-backdrop" id="lookupBackdrop"></div>
       <section class="lookup-window">
         <header class="lookup-header">
-          <div>
-            <span class="lookup-service" id="lookupService">Lookup</span>
-            <h2 id="lookupTitle">Lookup</h2>
-          </div>
+          <span class="lookup-service" id="lookupService"></span>
           <div class="lookup-actions">
             <a class="lookup-open" id="lookupOpenLink" href="#" target="_blank" rel="noopener noreferrer">Open in new tab</a>
             <button class="lookup-close" id="lookupCloseButton" type="button" aria-label="Close">Close</button>

@@ -3,6 +3,37 @@ import { VocabSprintGame } from "./game.js";
 const game = new VocabSprintGame();
 game.init();
 
+// iOSのDynamic Island/ロック画面に音の情報（Now Playing）を出さないようにする。
+// ゲーム音を「メディア再生」ではなく「ambient（ゲーム/環境音）」として扱うことで、
+// 単語を発音するたびにNow Playingが点滅したり、ロック画面に再生コントロールが出るのを防ぐ。
+// トレードオフ: ambientは消音スイッチ（サイレント）をONにすると音が鳴らなくなる（ゲームとして自然な挙動）。
+(() => {
+  const applyAmbientAudioSession = () => {
+    const session = globalThis.navigator?.audioSession;
+    if (session && "type" in session) {
+      try {
+        session.type = "ambient";
+      } catch {
+        // 未対応・設定不可の環境では何もしない（PC/Androidには影響なし）。
+      }
+    }
+    if (globalThis.navigator?.mediaSession) {
+      try {
+        globalThis.navigator.mediaSession.metadata = null;
+      } catch {
+        // ignore
+      }
+    }
+  };
+  applyAmbientAudioSession();
+  // 一部環境では復帰時にリセットされることがあるため、可視状態が戻ったら再適用する。
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      applyAmbientAudioSession();
+    }
+  });
+})();
+
 // スマホでのピンチズームを抑止する。
 (() => {
   const preventDefaultIfCancelable = (event) => {

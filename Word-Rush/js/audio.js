@@ -19,6 +19,9 @@ const WORD_AUDIO_RETRY_COOLDOWN_MAX_MS = 120000;
 const WORD_AUDIO_FAILURE_WINDOW_MS = 12000;
 const WORD_AUDIO_FAILURE_THRESHOLD = 3;
 const WORD_AUDIO_NETWORK_COOLDOWN_MS = 18000;
+// ロードが「遅い」（エラーではないが時間がかかる）と検知したら、先読みを一定時間控える。
+// 電波が悪いときに遅いロードを積み増して端末を圧迫するのを防ぐ（読み込みが復帰すれば自動で解除）。
+const WORD_AUDIO_SLOW_BACKOFF_MS = 8000;
 
 export class AudioEngine {
   constructor(getSettings, bgmTracks = []) {
@@ -50,6 +53,8 @@ export class AudioEngine {
     this.wordAudioFailures = new Map();
     this.wordAudioFailureTimes = [];
     this.wordAudioNetworkCooldownUntil = 0;
+    // ロードが遅いあいだ先読みを控える期限（part2: 電波劣化時の積み増し抑制）。
+    this.wordAudioSlowUntil = 0;
     // 一時再生用（クローン）Audio要素の再利用リング。再生終了後にここへ戻して使い回す。
     this.wordAudioTransientRing = [];
     this.noiseBuffer = null;
@@ -204,7 +209,13 @@ export class AudioEngine {
     return this.wordAudioEnabled()
       && Boolean(globalThis.Audio)
       && !this.wordAudioConnectionIsConstrained()
-      && !this.wordAudioNetworkCoolingDown();
+      && !this.wordAudioNetworkCoolingDown()
+      && Date.now() >= this.wordAudioSlowUntil;
+  }
+
+  // ロードが遅いと検知したら、しばらく先読みを控える（積み増し防止）。
+  markWordAudioSlow() {
+    this.wordAudioSlowUntil = Date.now() + WORD_AUDIO_SLOW_BACKOFF_MS;
   }
 
   markWordAudioReady(url) {
@@ -213,6 +224,8 @@ export class AudioEngine {
     }
     this.wordAudioFailureTimes = [];
     this.wordAudioNetworkCooldownUntil = 0;
+    // ロードが正常に完了したら先読み抑制も解除（電波が復帰した合図）。
+    this.wordAudioSlowUntil = 0;
   }
 
   markWordAudioProblem(url) {
@@ -488,6 +501,8 @@ export class AudioEngine {
         return;
       }
       warned = true;
+      // 遅いロードを検知したら先読みを控える（電波劣化時の積み増しで端末が重くなるのを防ぐ）。
+      this.markWordAudioSlow();
       this.emitWordAudioStatus({ type: "slow", url });
     }, WORD_AUDIO_LOAD_WARNING_MS);
     audio.addEventListener("canplay", ready, { once: true });
