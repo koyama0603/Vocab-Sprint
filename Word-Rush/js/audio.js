@@ -577,16 +577,42 @@ export class AudioEngine {
   }
 
   clearWordAudioTimers() {
-    for (const timer of this.wordAudioTimers) {
-      clearTimeout(timer);
+    for (const entry of this.wordAudioTimers) {
+      clearTimeout(entry.timer);
+      if (typeof entry.resolve === "function") {
+        entry.resolve(false);
+      }
     }
     this.wordAudioTimers.clear();
   }
 
+  setWordAudioTimer(callback, delayMs) {
+    let entry = null;
+    const timer = setTimeout(() => {
+      this.wordAudioTimers.delete(entry);
+      callback();
+    }, delayMs);
+    entry = { timer };
+    this.wordAudioTimers.add(entry);
+    return entry;
+  }
+
+  waitWordAudioTimer(delayMs) {
+    return new Promise((resolve) => {
+      let entry = null;
+      const timer = setTimeout(() => {
+        this.wordAudioTimers.delete(entry);
+        resolve(true);
+      }, delayMs);
+      entry = { timer, resolve };
+      this.wordAudioTimers.add(entry);
+    });
+  }
+
   stopWordAudio() {
+    this.wordAudioQueueToken += 1;
     this.clearWordAudioTimers();
     this.clearWordAudioLoadMonitors();
-    this.wordAudioQueueToken += 1;
     for (const audio of Array.from(this.wordAudioActive)) {
       audio.pause();
       try {
@@ -614,15 +640,13 @@ export class AudioEngine {
     }
     const delayMs = Math.max(0, Number(options.delayMs) || 0);
     if (delayMs) {
-      const timer = setTimeout(() => {
-        this.wordAudioTimers.delete(timer);
+      this.setWordAudioTimer(() => {
         this.playWordAudio(url, {
           shouldPlay,
           fromQueue: options.fromQueue,
           cancelQueued: options.cancelQueued
         });
       }, delayMs);
-      this.wordAudioTimers.add(timer);
       return;
     }
 
@@ -669,8 +693,7 @@ export class AudioEngine {
 
     if (intervalMs) {
       queue.forEach((item, index) => {
-        const timer = setTimeout(() => {
-          this.wordAudioTimers.delete(timer);
+        this.setWordAudioTimer(() => {
           if (this.wordAudioQueueToken !== token) {
             return;
           }
@@ -683,20 +706,13 @@ export class AudioEngine {
             fromQueue: true
           });
         }, delayMs + intervalMs * index);
-        this.wordAudioTimers.add(timer);
       });
       return;
     }
 
     const playNext = async () => {
       if (delayMs) {
-        await new Promise((resolve) => {
-          const timer = setTimeout(() => {
-            this.wordAudioTimers.delete(timer);
-            resolve();
-          }, delayMs);
-          this.wordAudioTimers.add(timer);
-        });
+        await this.waitWordAudioTimer(delayMs);
       }
       for (const item of queue) {
         if (this.wordAudioQueueToken !== token) {
@@ -708,13 +724,7 @@ export class AudioEngine {
         }
         await this.playWordAudioQueueItem(item.url, token, maxItemMs);
         if (gapMs && this.wordAudioQueueToken === token) {
-          await new Promise((resolve) => {
-            const timer = setTimeout(() => {
-              this.wordAudioTimers.delete(timer);
-              resolve();
-            }, gapMs);
-            this.wordAudioTimers.add(timer);
-          });
+          await this.waitWordAudioTimer(gapMs);
         }
       }
     };

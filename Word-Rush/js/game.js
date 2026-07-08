@@ -54,7 +54,6 @@ const DEFAULT_GAME_MODE_ID = "rush";
 const DEFAULT_WORD_LIST_SORT = { key: "", direction: "asc" };
 const WORD_LIST_SORT_COLUMNS = [
   { key: "word", label: "単語", defaultDirection: "asc" },
-  { key: "", label: "意味" },
   { key: "correct", label: "正答", defaultDirection: "desc" },
   { key: "incorrect", label: "誤答", defaultDirection: "desc" }
 ];
@@ -895,14 +894,16 @@ export class VocabSprintGame {
       wordCell.className = "word-list-word";
       const actions = document.createElement("span");
       actions.className = "word-list-actions";
+      const wordTextGroup = document.createElement("span");
+      wordTextGroup.className = "word-list-word-text";
       const wordText = document.createElement("strong");
       wordText.textContent = word.english;
-      actions.append(this.createWordAudioButton(word), this.createWordInfoButton(word));
-      wordCell.append(actions, wordText);
-
       const meaning = document.createElement("span");
       meaning.className = "word-list-meaning";
       meaning.textContent = word.japanese || "";
+      wordTextGroup.append(wordText, meaning);
+      actions.append(this.createWordAudioButton(word), this.createWordInfoButton(word));
+      wordCell.append(actions, wordTextGroup);
 
       const correct = document.createElement("span");
       correct.className = "word-list-count";
@@ -912,7 +913,7 @@ export class VocabSprintGame {
       incorrect.className = "word-list-count is-wrong";
       incorrect.textContent = this.formatNumber(stats.incorrect);
 
-      row.append(wordCell, meaning, correct, incorrect);
+      row.append(wordCell, correct, incorrect);
       fragment.appendChild(row);
     }
 
@@ -4444,7 +4445,6 @@ export class VocabSprintGame {
     this.ui.returnConfirm?.addEventListener("click", () => this.confirmReturnToTitle());
     this.ui.returnConfirmBackdrop?.addEventListener("click", () => this.closeReturnConfirmModal());
     this.ui.wordListClose?.addEventListener("click", () => this.closeWordListModal());
-    this.ui.wordListBackdrop?.addEventListener("click", () => this.closeWordListModal());
     this.ui.helpClose?.addEventListener("click", () => this.closeHelpModal());
     this.ui.helpBackdrop?.addEventListener("click", () => this.closeHelpModal());
     this.ui.lookupClose?.addEventListener("click", () => this.closeLookupModal());
@@ -4599,7 +4599,6 @@ export class VocabSprintGame {
       if (this.state.wordListOpen) {
         if (key === "escape") {
           event.preventDefault();
-          this.closeWordListModal();
         }
         return;
       }
