@@ -39,6 +39,7 @@ const WORD_AUDIO_SPAWN_DELAY_MS = 90;
 const WORD_AUDIO_PREFETCH_COUNT = 3;
 const WORD_AUDIO_PREFETCH_INTERVAL_MS = 3800;
 const SLOW_WORD_AUDIO_TOAST_URL_LIMIT = 16;
+const LEVEL_LOAD_TIMEOUT_MS = 10000;
 const WORD_STATS_SAVE_DEBOUNCE_MS = 1800;
 const EFFECT_LIMIT = 90;
 const CARD_PARTICLE_COUNTS = {
@@ -246,6 +247,7 @@ export class VocabSprintGame {
       overlayCopy: document.getElementById("overlayCopy"),
       overlayScroll: document.querySelector(".overlay-scroll"),
       titleDetails: document.getElementById("titleDetails"),
+      titleCacheNote: document.getElementById("titleCacheNote"),
       titlePlayCount: document.getElementById("titlePlayCountValue"),
       titleBest: document.getElementById("titleBestValue"),
       titleLearned: document.getElementById("titleLearnedValue"),
@@ -1000,6 +1002,10 @@ export class VocabSprintGame {
   }
 
   requestReturnToTitle() {
+    if (this.state.phase === "error" && !this.state.words.length) {
+      this.loadLevel(this.state.levelId);
+      return;
+    }
     if (this.state.phase === "playing" || this.state.phase === "paused") {
       this.openReturnConfirmModal();
       return;
@@ -1610,8 +1616,20 @@ export class VocabSprintGame {
     this.updateUi();
     this.drawBoard();
 
+    const loadController = typeof AbortController === "function" ? new AbortController() : null;
+    let timeoutId = 0;
+    const loadTimeout = new Promise((_, reject) => {
+      timeoutId = window.setTimeout(() => {
+        loadController?.abort?.();
+        reject(new Error("Level load timeout"));
+      }, LEVEL_LOAD_TIMEOUT_MS);
+    });
+
     try {
-      const words = await loadWords(level);
+      const words = await Promise.race([
+        loadWords(level, { signal: loadController?.signal }),
+        loadTimeout
+      ]);
       if (token !== this.loadToken) {
         return;
       }
@@ -1643,10 +1661,19 @@ export class VocabSprintGame {
       }
       this.state.phase = "error";
       this.state.loadError = error instanceof Error ? error.message : String(error);
-      this.showOverlay("読み込みエラー", "ローカルサーバーで開いてください", "Start", { showTitleDetails: false });
+      this.showOverlay("読み込みエラー", "電波状況を確認して右上の Return ボタンを押してください", "", {
+        showTitleDetails: false,
+        errorMode: true,
+        hideStart: true,
+        hideCacheNote: true
+      });
       this.updateUi();
       this.renderAnswerButtons();
       this.drawBoard();
+    } finally {
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
     }
   }
 
@@ -4291,6 +4318,8 @@ export class VocabSprintGame {
     this.ui.overlayCopy.textContent = copy;
     this.ui.reviewList.innerHTML = "";
     this.ui.startButton.textContent = buttonText;
+    this.ui.startButton.classList.toggle("hidden", Boolean(options.hideStart));
+    this.ui.titleCacheNote?.classList.toggle("hidden", Boolean(options.hideCacheNote));
     this.ui.titleDetails.classList.toggle("hidden", !options.showTitleDetails);
     this.ui.overlayBackButton.classList.toggle("hidden", !options.showBack);
     this.ui.resultCloseButton?.classList.toggle("hidden", !options.resultMode);
@@ -4299,6 +4328,7 @@ export class VocabSprintGame {
     this.ui.overlay.classList.toggle("title-mode", Boolean(options.titleMode));
     this.ui.overlay.classList.toggle("pause-mode", Boolean(options.pauseMode));
     this.ui.overlay.classList.toggle("loading-mode", Boolean(options.loadingMode));
+    this.ui.overlay.classList.toggle("error-mode", Boolean(options.errorMode));
     document.body.classList.toggle("is-result-overlay", Boolean(options.resultMode));
     this.ui.overlay.classList.remove("fade-in");
     this.clearResultIntroLock();
@@ -4328,7 +4358,9 @@ export class VocabSprintGame {
   hideOverlay() {
     this.clearResultIntroLock();
     this.ui.overlay.classList.remove("show");
-    this.ui.overlay.classList.remove("fade-in", "result-mode", "title-mode", "pause-mode", "loading-mode");
+    this.ui.overlay.classList.remove("fade-in", "result-mode", "title-mode", "pause-mode", "loading-mode", "error-mode");
+    this.ui.startButton.classList.remove("hidden");
+    this.ui.titleCacheNote?.classList.remove("hidden");
     this.ui.resultCloseButton?.classList.add("hidden");
     this.ui.gameShell.classList.remove("is-obscured");
     document.body.classList.remove("is-result-overlay");

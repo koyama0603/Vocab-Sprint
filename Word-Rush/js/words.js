@@ -45,8 +45,8 @@ export function parseCsv(text) {
 
 const wordCache = new Map();
 
-async function readWords(level) {
-  const response = await fetch(level.file);
+async function readWords(level, options = {}) {
+  const response = await fetch(level.file, { signal: options.signal });
   if (!response.ok) {
     throw new Error(`CSV load failed: ${level.file}`);
   }
@@ -92,11 +92,11 @@ async function readWords(level) {
   return words;
 }
 
-export async function loadWords(level) {
+export async function loadWords(level, options = {}) {
   const cacheKey = level.file;
   let request = wordCache.get(cacheKey);
   if (!wordCache.has(cacheKey)) {
-    request = readWords(level);
+    request = readWords(level, options);
     wordCache.set(cacheKey, request);
   }
 

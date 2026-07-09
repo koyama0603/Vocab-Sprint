@@ -29,6 +29,10 @@ const WORD_AUDIO_SLOW_URL_LIMIT = 16;
 // アイドル（非プレイ・無音）状態でAudioContextを止めるまでの猶予。
 // BGMのフェードアウト（最長1800ms）が終わってから止めたいので余裕をもたせる。
 const CONTEXT_SUSPEND_DELAY_MS = 2200;
+// suspend予約時にBGMがまだ鳴っていた場合の再試行上限。
+// 呼び出し側は必ず先にfade/stopするため通常は再試行しないが、異常時に
+// 2.2秒毎の起床が無限に続かないよう回数を有界にする（5回 ≒ 最大11秒で打ち切り）。
+const CONTEXT_SUSPEND_MAX_RETRIES = 5;
 const WORD_AUDIO_IDLE_RELEASE_MS = 15000;
 
 export class AudioEngine {
@@ -970,14 +974,14 @@ export class AudioEngine {
   // 無音でも running のままだとオーディオ描画スレッドが常時CPUを起こし続け、
   // iOSでは長時間放置の発熱源になる（放置後にスロットリングで重く感じる原因）。
   // 音を出す経路（init / startBgm / playSfx）で必ず resume される。
-  scheduleContextSuspend(delayMs = CONTEXT_SUSPEND_DELAY_MS) {
+  scheduleContextSuspend(delayMs = CONTEXT_SUSPEND_DELAY_MS, retriesLeft = CONTEXT_SUSPEND_MAX_RETRIES) {
     if (!this.ctx || typeof this.ctx.suspend !== "function") {
       return;
     }
     this.clearContextSuspendTimer();
     this.contextSuspendTimer = setTimeout(() => {
       this.contextSuspendTimer = 0;
-      this.suspendContextIfIdle({ retryIfBusy: true });
+      this.suspendContextIfIdle({ retriesLeft });
     }, Math.max(0, delayMs));
   }
 
@@ -987,8 +991,10 @@ export class AudioEngine {
     }
     // フェード中・BGM再生中は止めない。HTMLAudio直のBGM試聴/単語音声はContextに非依存。
     if (this.bgmFading || (this.bgmAudio && !this.bgmAudio.paused)) {
-      if (options.retryIfBusy) {
-        this.scheduleContextSuspend();
+      // BGMが止まるのを待って数回だけ再試行する（異常時も2.2秒毎の無限起床にしない）。
+      const retriesLeft = Number(options.retriesLeft) || 0;
+      if (retriesLeft > 0) {
+        this.scheduleContextSuspend(CONTEXT_SUSPEND_DELAY_MS, retriesLeft - 1);
       }
       return;
     }
@@ -1314,14 +1320,18 @@ export class AudioEngine {
     if (this.previewAudio) {
       this.previewAudio.volume = this.bgmVolume();
     }
+    const phase = getPhase?.();
     if (!this.bgmEnabled()) {
       this.stopBgm();
-      return;
-    }
-    if (getPhase?.() === "playing") {
+    } else if (phase === "playing") {
       this.startBgm(getPhase);
     } else if (this.bgmAudio && !this.bgmFading) {
       this.setBgmLevel(this.bgmVolume());
+    }
+    // 非プレイ中に音設定を操作した後は、無音になったらContextを再suspendする予約を入れ直す。
+    // 何らかの経路でContextが running のまま残っても、次の遷移を待たず自動で止められるようにする。
+    if (phase !== "playing") {
+      this.scheduleContextSuspend();
     }
   }
 

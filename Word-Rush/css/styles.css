@@ -843,14 +843,15 @@ select:disabled {
   border: 1px solid color-mix(in srgb, var(--gold) 52%, var(--line));
   border-radius: 8px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--gold) 18%, transparent), transparent 70%),
-    color-mix(in srgb, var(--overlay-bg) 94%, var(--gold));
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+    linear-gradient(180deg, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%),
+    color-mix(in srgb, var(--overlay-bg) 72%, transparent);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
   color: var(--ink);
   font-size: 13px;
   font-weight: 900;
   line-height: 1.35;
   text-align: center;
+  opacity: 0.72;
   pointer-events: none;
   transform: translateX(-50%);
 }
@@ -1133,6 +1134,23 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   opacity: 0;
   pointer-events: none;
   transform: scale(0.98);
+}
+
+.overlay.error-mode .overlay-panel {
+  width: min(680px, calc(100% - 24px));
+}
+
+.overlay.error-mode .overlay-panel h2 {
+  width: 100%;
+  max-width: none;
+  font-size: clamp(34px, 7vw, 54px);
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.overlay.error-mode .overlay-panel p {
+  margin-top: 10px;
+  max-width: none;
 }
 
 .overlay.fade-in {
