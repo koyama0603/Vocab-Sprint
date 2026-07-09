@@ -1,6 +1,6 @@
 # Word Rush 引き継ぎ書
 
-最終更新: 2026-07-07
+最終更新: 2026-07-09
 
 ## 作業フォルダ
 
@@ -32,25 +32,26 @@ MyShortcuts App Gallery 配布用の単体HTML:
 - 本番URL: `https://wordrush.myshortcuts.workers.dev/`
 - Cloudflare Workers Assets 設定: `Word-Rush\wrangler.jsonc`
 - 直近の本番デプロイ Version ID（wrangler出力で最後に記録済み）: `3e494e73-bfc6-49cc-a1ad-e5aeedb5914b`
-- 2026-07-08時点で、公開中の `cache-manifest.json` version はローカルと同じ `4a57567738d27cea`。
-- 最新アプリ変更コミットは `f29a2fa Improve mobile audio and install handling`。
-- 最新コードは本番へ反映済み、GitHubにもpush済み（`main` ブランチ）。
+- **未コミット/未デプロイの変更あり（要注意）**: 2026-07-09時点で、Codexによる性能・電波耐性の追加チューニングが `Word-Rush\js\audio.js`、`Word-Rush\js\game.js`、`Word-Rush\index.html`、`Word-Rush\cache-manifest.json` に**未コミットで存在**する。ローカル `cache-manifest.json` version は `c8183a200b7addb6`。本番/GitHub `main` にはまだ反映していない。次チャットではまず `git status --short` で確認し、ユーザーの指示に従ってコミット/デプロイ/pushする。
+- コミット済みの最新は `53f455a`（本番/GitHubに反映済みの最後の状態はこのあたり。ただし上記の未コミット差分は未反映）。
 - `appgallery-single-html/index.html` はこの一連の通常サイト作業では未変更。
-- ユーザーの明示指示がある時だけCloudflareへデプロイする。通常の修正・確認だけで自発的にデプロイしない。
+- ユーザーの明示指示がある時だけCloudflareへデプロイ・GitHubへpushする。通常の修正・確認だけで自発的にデプロイ/pushしない。
 
 ## 最近の主な実装
 
 - 結果画面:
-  - 出題済み単語をすべて表示。
-  - `OK` / `Wrong` / `Miss` 表示。
-  - 各単語の累積 `正：x回　誤：y回` を表示。
-  - `detail`、`sample`、`sample-jpn` を表示。
-  - リンクボタンは `英辞郎`、`YouGlish`、`Wiktionary` の順。
-  - tooltip は独自実装で、英単語と訳語、詳細を大きな文字で表示。
+  - ゲーム終了時はフェードイン（`RESULT_INTRO_LOCK_MS`=900ms）で一呼吸おいて表示し、その間はRestart/Close/出題リストを押せない（終了間際の誤タップ防止。`result-intro` クラス＋`pointer-events:none`）。
+  - Restart（左上）/ Result（中央）/ Close（右上）をヘッダーに上詰め。ヘッダー直下にスタート画面と同じ「学習済み/正答率」の固定グラフ（`result-chart-region`、スクロールしない）。その下に出題リスト（スクロール）。
+  - 出題済み単語をすべて表示。`OK` / `Wrong` / `Miss`、累積 `正：x回 誤：y回`、`detail`/`sample`/`sample-jpn` を表示。
+  - リンクボタンは `英辞`（英辞郎）、`YouG`（YouGlish）。スマホでは詳細用の `i` ボタン（ツールチップ表示）も出る。
+  - tooltip は独自実装で、英単語と訳語、詳細、英語例文、和訳を大きな文字で表示。
+  - コピーボタン: **PCの出題リスト**では英単語と英語例文の右にコピーボタン（`.review-copy`、`hover:hover and pointer:fine` かつ広幅のみ表示）。**スマホのツールチップ**では英単語と英語例文の右にコピーボタン（`.tooltip-copy`、`.review-tooltip.has-close` のときだけ表示）。共通 `createCopyButton`/`copyTextToClipboard`（`navigator.clipboard`＋execCommandフォールバック）。
+  - lookup（iframe）モーダルは左上の単語見出しを出さない（Closeが切れる問題の回避、a11y用にserviceのみsr-only）。
 - スタート画面 / 一時停止画面:
   - レベル、レーン、出題方向（英→日 / 日→英）、ゲームモード、サバイバルモードを選択可能。
-  - HISTORYには学習済み、正答率、リセット、プレイ回数、ベストスコア、出題済の単語数、未正解数、累積正解数 / 累積出題数、誤答Best10を表示。
+  - HISTORYには学習済み、正答率、リセット、プレイ回数、未正解数、ベストスコア、出題済の単語数、累積正解数 / 累積出題数、誤答Best10を表示。
   - 誤答Best10と単語一覧には発音ボタンと詳細表示ボタンがある。
+  - **単語一覧ボタンは一時停止中も開ける**（プレイ中のみ無効。`openWordListModal` と `wordListButton.disabled` の両方で `paused` を許可）。モーダルはオーバーレイより前面（z-index）。
   - 初回起動時はゲーム説明画面を自動表示し、以降は自動表示しない。
 - ゲームモード:
   - `rush`: ラッシュ。単語カードが上から落ちる現行基本モード。
@@ -79,8 +80,8 @@ MyShortcuts App Gallery 配布用の単体HTML:
   - 生成音声は `edge-tts` の `en-US-JennyNeural`。
   - 現在は7000語分あり、各CSVの `id` をファイル名にしている。
   - 単語音声のON/OFFと音量設定があり、デフォルトはON、現在音量の基準は50%。
-  - 単語カード表示時に発音する。複数レーン開始時はキュー/タイマーで順番に発音する。
-  - 電波不良などで単語音声の読み込みが遅い時はゲーム画面中央上にトーストを出し、読み込み復帰・失敗・ゲーム終了時に消す。
+  - 単語カード表示時に発音する。複数レーン開始時は**順次再生**（前の発音が実際に終わってから＋`WORD_AUDIO_START_GAP_MS`=240msの間をおいて次）。固定間隔だとモバイルの再生開始遅延で発音が重なるため、`playWordAudioQueue` は `gapMs` モード（終了待ち）を使う。
+  - 電波不良などで単語音声の読み込みが遅い時はゲーム画面中央上にトーストを出し、読み込み復帰・失敗・ゲーム終了時に消す。加えて、遅い間は先読みを控える（パフォーマンス章の「電波劣化時の先読みバックオフ」参照）。
 - キャッシュ:
   - 過去にService Workerキャッシュで2回目起動時のサーバエラーが発生。
   - 現在の `sw.js` は退役用。古い `word-rush-assets-*` と `word-rush-meta` キャッシュを削除し、自身を unregister する。
@@ -199,9 +200,18 @@ npx --yes wrangler@latest deploy
 
 ## 現在の作業ツリー
 
-2026-07-07時点で `Word-Rush` に未コミット変更なし。通常サイトのソース・本番・GitHub（`main`）は一致している。
+**2026-07-09時点で未コミット変更あり（本番/GitHub未反映）。** 次チャットの冒頭で `git status --short` を確認し、ユーザーの指示に従ってコミット/デプロイ/pushすること。
 
-この引き継ぎ書 `docs/handoff.md` はチャット移行用に更新したため、未コミット変更として残っている場合がある。
+未コミットの主な内容（Codexによる性能・電波耐性の追加チューニング。動作確認済み: 60fps・ヒープ安定・コンソールエラーなし）:
+
+- `js/game.js`: エフェクトは `pushEffect()` 経由に統一し `EFFECT_LIMIT`(90) で間引き。パーティクル数を `CARD_PARTICLE_COUNTS`(16/14/12) に削減。パーティクル/衝撃波/reveal/浮遊テキストの `shadowBlur` を控えめ＋`alpha>0.18` でゲート。単語音声の先読みを `WORD_AUDIO_PREFETCH_COUNT`=3 / `INTERVAL`=3800 に抑制。結果画面フェードインロック `RESULT_INTRO_LOCK_MS`=900。`learnedRate` を `Math.floor` に。
+- `js/audio.js`: 電波劣化バックオフを per-URL 化（`wordAudioSlowUrls`、遅いURL自身の復帰でのみ解除）。同時再生上限 `WORD_AUDIO_ACTIVE_LIMIT`=8。`wordAudioFailures`/`wordAudioSlowUrls` の Set 上限（64/16）。
+- `index.html`: HISTORY の統計カード並び替え（「未正解数」を「プレイ回数」の直後へ）。
+- `cache-manifest.json`: 再生成（version `c8183a200b7addb6`）。
+
+これ以前の変更（結果画面のフェードイン一呼吸＋固定グラフ＋上詰め、iframeのClose切れ修正、出題一覧/ツールチップのコピーボタン、発音キューの順次再生化、Now Playing抑止、一時停止中の単語一覧、単語音声の再利用/churn解消 など）はコミット済み（`53f455a` まで）。
+
+この引き継ぎ書 `docs/handoff.md` もチャット移行用に更新したため未コミットで残っている。
 
 現在の未追跡ファイル:
 
@@ -236,11 +246,11 @@ npx --yes wrangler@latest deploy
 
 ## 次チャットで最初に確認すること
 
-1. `git status --short`
-2. `Word-Rush\cache-manifest.json` の version
-3. 公開中の `https://wordrush.myshortcuts.workers.dev/cache-manifest.json` の version
-4. 最新変更を本番へ反映するかどうか（ただし、ユーザーが明示した時だけデプロイ）
-5. ユーザーがデプロイ希望なら、`dist` を作り直して `wrangler deploy`
+1. `git status --short` — **未コミット変更あり**（Codexの性能/電波耐性チューニング＋この引き継ぎ書）。「現在の作業ツリー」参照。
+2. `Word-Rush\cache-manifest.json` の version（ローカルは `c8183a200b7addb6`）
+3. 公開中の `https://wordrush.myshortcuts.workers.dev/cache-manifest.json` の version（未コミット分はまだ未反映のはず）
+4. 未コミット変更をコミット/デプロイ/pushするか、ユーザーに確認（明示指示がある時だけ実施）
+5. デプロイ時は `dist` を作り直して `wrangler deploy`（デプロイ節の手順参照）。構文チェックは `node --check .\js\game.js .\js\audio.js .\js\main.js`
 
 ## 注意点
 
@@ -266,7 +276,8 @@ npx --yes wrangler@latest deploy
 - バックバッファ解像度は `deviceRatio()`（`CANVAS_MAX_DPR = 1.5` で頭打ち）で決める。iPhone(dpr=3)などでは全面塗り＋レーン背景の多層オーバードローがフィルレートを圧迫して発熱するため、2.0に戻さない。`resizeCanvas` と `canvasSize` は必ず `deviceRatio()` を使い、倍率をずらさない。
 - 全単語の走査（学習統計など）は `computeStats()` のキャッシュを使う。直接ループを足さない。無効化は `invalidateStatsCache()`。
 - `ctx.filter`（blurなど）は使用禁止。iOS SafariのCanvas filterは極端に重く、メモリリークの報告もある。うっすらしたブラーは視認できないコストの塊。
-- `ctx.shadowBlur` はモバイルで高コスト。既存の使用量（カード・パーティクル）以上に増やさない。低透明度エフェクトでは `shadowBlur * alpha` のように弱める。
+- `ctx.shadowBlur` はモバイルで高コスト。既存の使用量以上に増やさない。パーティクル/衝撃波/reveal/浮遊テキストの `shadowBlur` は `alpha > 0.18 ? 値*alpha : 0`（薄いフレームはブラーを完全に省く）にしてある。値も控えめ（dot 5 / spark 8 / shockwave 7 / reveal 16 / text 6）。ここを盛らない。
+- エフェクト（消えるカードのパーティクル/衝撃波/reveal/浮遊テキスト）は必ず `pushEffect()` 経由で追加する。`state.effects.push` を直接呼ばない。`pushEffect` は `EFFECT_LIMIT`（90）で古いものを間引き、極端な連射でも配列が無限に伸びないようにしている。パーティクル数は `CARD_PARTICLE_COUNTS`（correct 16 / wrong 14 / miss 12）で控えめ。増やすと発熱するので注意。
 - 描画ループはプレイ中のみ回す設計（`startRenderLoop` / `stopRenderLoop`）。メニュー/一時停止/結果画面で動くアニメーションを追加しない。追加するなら状態遷移時の1回描画で表現する。
 
 ### 回答ボタンのDOM更新（renderAnswerButtons / updateLaneAnswerButtons）
@@ -292,9 +303,12 @@ npx --yes wrangler@latest deploy
   - 結果、1ゲームあたりの Audio 生成は実質「プール24＋一時4＝約28」で頭打ちになり、**充填後は全モードで定常生成0/秒**（計測で確認: fade/fixed/rush いずれも 0/秒）。プール構造・watchdog・失敗クールダウンはそのまま。新しく単語音声の再生経路を足すときも、この2つの取得口（`ensureWordAudio` / `acquireTransientWordAudio`）以外で `new Audio()` しないこと。
 - 「ゲームを続けると重くなる」の実測結論（2026-07時点）: JSヒープ・DOMノードは長時間プレイでも安定（リークなし）。犯人は**単語音声の Audio 要素を毎スポーン作り直していた create/destroy churn**（iOSのネイティブ音声資源を消耗）。**集中/じっくりで顕著だったのは、これらのモードは1ゲームが長引きやすく churn の総量が増えるため**（コード自体はモード非依存）。再現・計測は「単語音声ON」で行うこと（`wordAudioEnabled` を localStorage に false 保存したまま計測すると生成0になり誤診する）。
 - 一時停止・ゲーム終了・タイトル復帰時は `releaseWordAudioPool()` で全解放する（プール要素と一時再生リングの両方。長時間ポーズ中に資源を掴み続けない）。必要になれば作り直すので機能影響はない。次ゲーム開始時にプールを再充填するため開始直後に約24個生成されるが、その後は再利用で0になる（一時的コストで churn ではない）。
-- 先読み（`prefetchUpcomingWordAudio` → `preloadWordAudio`）も `ensureWordAudio` 経由なので、上記の再利用により Audio 生成は頭打ちに含まれる。プリフェッチを fetch ベースのキャッシュ温めに変える案は効果が薄く（生成の主因は再生側）、複雑さに見合わないため採用しない。
+- 先読み（`prefetchUpcomingWordAudio` → `preloadWordAudio`）も `ensureWordAudio` 経由なので、上記の再利用により Audio 生成は頭打ちに含まれる。先読みは控えめ設定（`WORD_AUDIO_PREFETCH_COUNT`=3、`WORD_AUDIO_PREFETCH_INTERVAL_MS`=3800）で、電波劣化時の取得積み増しとAudio資源圧迫を避ける。プリフェッチを fetch ベースのキャッシュ温めに変える案は効果が薄く（生成の主因は再生側）不採用。
 - iOSのNow Playing（Dynamic Island/ロック画面）抑止: `main.js` でページロード時に `navigator.audioSession.type = "ambient"` を設定している。これでゲーム音が「メディア再生」として登録されず、単語発音のたびにNow Playingが点滅したりロック画面に再生コントロールが出るのを防ぐ。可視状態復帰時にも再適用。未対応環境（PC/Android）では no-op。トレードオフ: `ambient` は消音（サイレント）スイッチONで音が鳴らない（ゲームとして自然な挙動）。「playback」に戻すとNow Playingが復活するので戻さないこと。
-- 電波劣化時の先読みバックオフ: ロードが遅い（`monitorWordAudioLoad` の警告=1400msでまだ未ロード）と `markWordAudioSlow()` が `wordAudioSlowUntil` を立て、`canPrefetchWordAudio()` が `WORD_AUDIO_SLOW_BACKOFF_MS`（8秒）先読みを止める。ロードが成功する（`markWordAudioReady`）と即解除。これで電波が悪いときに遅いロードを積み増して端末を圧迫するのを防ぐ（現在再生する語は `ensureWordAudio` 直呼びで先読みゲートに掛からないので再生は継続する）。ゲームのrAFループは音声ロードを await しないため、電波劣化でフレームが直接止まることはない（積み増しによる端末負荷が主因）。
+- 電波劣化時の先読みバックオフ（part2、Codexが強化）: ロードが遅い（`monitorWordAudioLoad` の警告=1400msでまだ未ロード）と `markWordAudioSlow(url)` が `wordAudioSlowUntil` を立て、遅いURLを `wordAudioSlowUrls`（上限16）に記録。`canPrefetchWordAudio()` が `WORD_AUDIO_SLOW_BACKOFF_MS`（8秒）先読みを止める。**解除は「遅いと判定したURL自身が復帰したとき」だけ**（`markWordAudioReady(url)` が `wordAudioSlowUrls` からそのURLを消し、空になったら `wordAudioSlowUntil=0`）。別URLの canplay で即解除すると電波劣化中に先読みが再開して積み増すため、この per-URL 判定が重要。
+- 同時再生Audioの安全上限: `playableWordAudio` は `wordAudioActive.size >= WORD_AUDIO_ACTIVE_LIMIT`（8）なら再生せず `markWordAudioSlow` して null を返す（電波停滞時に再生待ちAudioが増え続けるのを防ぐ）。
+- 追跡用Setの上限: `wordAudioFailures`（失敗URL）は `WORD_AUDIO_FAILURE_URL_LIMIT`（64）、`wordAudioSlowUrls` は 16 で古いものから間引く。長時間プレイでも増え続けない。
+- ゲームのrAFループは音声ロードを await しないため、電波劣化でフレームが直接止まることはない（「積み増しによる端末負荷」が体感の重さの主因で、上記のバックオフ/上限で緩和している）。
 
 ### タイマー・状態のライフサイクル
 

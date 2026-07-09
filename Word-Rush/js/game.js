@@ -35,9 +35,17 @@ const WORD_AUDIO_START_MAX_ITEM_MS = 2600;
 // 結果画面をフェードイン表示している間、ボタンを押せなくしておく時間（終了間際の誤タップ防止）。
 const RESULT_INTRO_LOCK_MS = 900;
 const WORD_AUDIO_SPAWN_DELAY_MS = 90;
-const WORD_AUDIO_PREFETCH_COUNT = 6;
-const WORD_AUDIO_PREFETCH_INTERVAL_MS = 2400;
+// 単語音声の先読みは控えめにする。電波が悪い時の取得積み増しとAudio資源圧迫を避ける。
+const WORD_AUDIO_PREFETCH_COUNT = 3;
+const WORD_AUDIO_PREFETCH_INTERVAL_MS = 3800;
+const SLOW_WORD_AUDIO_TOAST_URL_LIMIT = 16;
 const WORD_STATS_SAVE_DEBOUNCE_MS = 1800;
+const EFFECT_LIMIT = 90;
+const CARD_PARTICLE_COUNTS = {
+  correct: 16,
+  wrong: 14,
+  miss: 12
+};
 // キャンバスのバックバッファ解像度上限。iPhone(dpr=3)などでは全面塗り＋レーン背景の
 // 多層オーバードローがフィルレートを圧迫して発熱するため、2.0ではなく1.5で頭打ちにする。
 const CANVAS_MAX_DPR = 1.5;
@@ -382,6 +390,8 @@ export class VocabSprintGame {
     this.wordStatsDirty = false;
     this.slowWordAudioUrls = new Set();
     this.lastWordAudioPrefetchAt = 0;
+    this.answerTextPoolKey = "";
+    this.answerTextPool = [];
     this.copyToastTimer = 0;
     // カード再出現の setTimeout を管理する。放置すると一時停止/リスタートを跨いで発火し、
     // レーン喪失や新ゲームのカード差し替えを起こすため、状態遷移時に必ずクリアする。
@@ -665,6 +675,11 @@ export class VocabSprintGame {
     this.statsCache = null;
   }
 
+  clearAnswerTextPoolCache() {
+    this.answerTextPoolKey = "";
+    this.answerTextPool = [];
+  }
+
   // 全単語を1回だけ走査して learningCounts と levelSummaryStats の両方を計算・キャッシュする。
   computeStats() {
     if (this.statsCache) {
@@ -698,7 +713,7 @@ export class VocabSprintGame {
       incorrect,
       answered,
       presented,
-      learnedRate: totalWords ? Math.round((learned / totalWords) * 100) : 0,
+      learnedRate: totalWords ? Math.floor((learned / totalWords) * 100) : 0,
       accuracyRate: answered ? Math.round((correct / answered) * 100) : 0
     };
     return this.statsCache;
@@ -1573,6 +1588,7 @@ export class VocabSprintGame {
     this.state.effects = [];
     this.state.wordBag = [];
     this.state.recent = [];
+    this.clearAnswerTextPoolCache();
     this.state.countdownSecond = 0;
     this.lastWordAudioPrefetchAt = 0;
     this.state.loadError = "";
@@ -1820,8 +1836,7 @@ export class VocabSprintGame {
   makeOptions(word) {
     const correct = this.answerTextFor(word);
     const answerField = this.activeQuizDirection().answerField;
-    const pool = this.state.words
-      .map((entry) => String(entry?.[answerField] || "").trim())
+    const pool = this.answerTextPoolFor(answerField)
       .filter((entry) => entry && entry !== correct);
     const choices = [correct];
     while (choices.length < 3 && pool.length) {
@@ -1831,6 +1846,16 @@ export class VocabSprintGame {
       }
     }
     return this.shuffle(choices);
+  }
+
+  answerTextPoolFor(answerField) {
+    const key = `${this.state.levelId}|${answerField}|${this.state.words.length}`;
+    if (this.answerTextPoolKey !== key) {
+      this.answerTextPool = this.state.words
+        .map((entry) => String(entry?.[answerField] || "").trim());
+      this.answerTextPoolKey = key;
+    }
+    return this.answerTextPool;
   }
 
   spawnLane(index, startAbove) {
@@ -2021,7 +2046,7 @@ export class VocabSprintGame {
 
   showAnswerReveal(laneIndex, lane) {
     const size = this.canvasSize();
-    this.state.effects.push({
+    this.pushEffect({
       type: "reveal",
       lane: laneIndex,
       text: this.answerTextFor(lane.word),
@@ -2030,6 +2055,16 @@ export class VocabSprintGame {
       maxLife: ANSWER_REVEAL_TIME,
       color: this.colors.gold
     });
+  }
+
+  pushEffect(effect) {
+    if (!effect) {
+      return;
+    }
+    if (this.state.effects.length >= EFFECT_LIMIT) {
+      this.state.effects.splice(0, this.state.effects.length - EFFECT_LIMIT + 1);
+    }
+    this.state.effects.push(effect);
   }
 
   wordAudioUrlFor(word, levelId = this.state.levelId) {
@@ -2052,7 +2087,7 @@ export class VocabSprintGame {
       if (this.state.phase !== "playing") {
         return;
       }
-      this.slowWordAudioUrls.add(url);
+      this.rememberSlowWordAudioUrl(url);
       this.syncNetworkToast();
       return;
     }
@@ -2060,6 +2095,16 @@ export class VocabSprintGame {
       this.slowWordAudioUrls.delete(url);
       this.syncNetworkToast();
     }
+  }
+
+  rememberSlowWordAudioUrl(url) {
+    if (!this.slowWordAudioUrls.has(url) && this.slowWordAudioUrls.size >= SLOW_WORD_AUDIO_TOAST_URL_LIMIT) {
+      const oldest = this.slowWordAudioUrls.values().next().value;
+      if (oldest) {
+        this.slowWordAudioUrls.delete(oldest);
+      }
+    }
+    this.slowWordAudioUrls.add(url);
   }
 
   syncNetworkToast() {
@@ -2089,17 +2134,43 @@ export class VocabSprintGame {
       return;
     }
     this.lastWordAudioPrefetchAt = now;
-    const active = new Set(
-      this.state.lanes
-        .map((lane) => this.wordStatKey(lane?.word))
-        .filter(Boolean)
-    );
+    const active = new Set();
+    for (const lane of this.state.lanes) {
+      const key = this.wordStatKey(lane?.word);
+      if (key) {
+        active.add(key);
+      }
+    }
     const statsNow = Date.now();
-    const candidates = this.state.words
-      .filter((word) => !active.has(this.wordStatKey(word)))
-      .sort((a, b) => this.wordPriorityWeight(b, statsNow) - this.wordPriorityWeight(a, statsNow))
-      .slice(0, WORD_AUDIO_PREFETCH_COUNT);
+    const candidates = this.selectWordAudioPrefetchCandidates(active, statsNow, WORD_AUDIO_PREFETCH_COUNT);
     this.preloadWordAudioFor(candidates, { preload: "metadata", limit: WORD_AUDIO_PREFETCH_COUNT });
+  }
+
+  selectWordAudioPrefetchCandidates(activeKeys, now, limit) {
+    const max = Math.max(0, Math.floor(Number(limit) || 0));
+    if (!max) {
+      return [];
+    }
+    const selected = [];
+    for (const word of this.state.words) {
+      if (activeKeys.has(this.wordStatKey(word))) {
+        continue;
+      }
+      const entry = { word, weight: this.wordPriorityWeight(word, now) };
+      if (selected.length < max) {
+        selected.push(entry);
+      } else if (entry.weight > selected[selected.length - 1].weight) {
+        selected[selected.length - 1] = entry;
+      } else {
+        continue;
+      }
+      for (let i = selected.length - 1; i > 0 && selected[i].weight > selected[i - 1].weight; i -= 1) {
+        const swap = selected[i - 1];
+        selected[i - 1] = selected[i];
+        selected[i] = swap;
+      }
+    }
+    return selected.map((entry) => entry.word);
   }
 
   playLaneWordAudio(laneIndex, delayMs = 0) {
@@ -2183,7 +2254,7 @@ export class VocabSprintGame {
     const red = this.colors.red;
     const ink = this.colors.ink;
     const muted = this.colors.muted;
-    const count = kind === "correct" ? 24 : kind === "wrong" ? 20 : 18;
+    const count = CARD_PARTICLE_COUNTS[kind] || CARD_PARTICLE_COUNTS.miss;
     const colors = kind === "correct"
       ? [green, gold, cyan]
       : kind === "wrong"
@@ -2198,7 +2269,7 @@ export class VocabSprintGame {
     const centerX = card.x + card.width / 2;
     const centerY = card.y + card.height / 2;
     if (kind === "correct") {
-      this.state.effects.push({
+      this.pushEffect({
         type: "shockwave",
         x: centerX,
         y: centerY,
@@ -2209,7 +2280,7 @@ export class VocabSprintGame {
         color: green
       });
     } else if (kind === "wrong") {
-      this.state.effects.push({
+      this.pushEffect({
         type: "shockwave",
         x: centerX,
         y: centerY,
@@ -2233,7 +2304,7 @@ export class VocabSprintGame {
         : kind === "miss"
           ? Math.abs(Math.sin(angle)) * speed * 0.55 + 14
           : Math.sin(angle) * speed - 4;
-      this.state.effects.push({
+      this.pushEffect({
         type: "particle",
         x,
         y,
@@ -2253,19 +2324,19 @@ export class VocabSprintGame {
 
   renderReviewList() {
     this.hideReviewTooltip();
-    this.ui.reviewList.innerHTML = "";
     if (!this.state.review.size) {
       const empty = document.createElement("div");
       empty.className = "review-title";
       empty.textContent = "復習なし";
-      this.ui.reviewList.appendChild(empty);
+      this.ui.reviewList.replaceChildren(empty);
       return;
     }
 
+    const fragment = document.createDocumentFragment();
     const title = document.createElement("div");
     title.className = "review-title";
     title.textContent = "出題リスト";
-    this.ui.reviewList.appendChild(title);
+    fragment.appendChild(title);
 
     const reviewItems = Array.from(this.state.review.values())
       .map((item, index) => ({ item, index }))
@@ -2369,8 +2440,9 @@ export class VocabSprintGame {
       });
       links.append(mobileInfo, eijiro, youglish);
       row.append(english, japanese, status, detail, links);
-      this.ui.reviewList.appendChild(row);
+      fragment.appendChild(row);
     }
+    this.ui.reviewList.replaceChildren(fragment);
   }
 
   reviewDetailText(item) {
@@ -3265,7 +3337,11 @@ export class VocabSprintGame {
     this.state.phase = "playing";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
     this.state.gameModeId = this.selectedGameModeId();
-    this.state.quizDirection = this.selectedQuizDirection();
+    const nextQuizDirection = this.selectedQuizDirection();
+    if (nextQuizDirection !== this.state.quizDirection) {
+      this.clearAnswerTextPoolCache();
+    }
+    this.state.quizDirection = nextQuizDirection;
     this.state.survivalEnabled = this.selectedSurvivalEnabled();
     this.savePreferences();
     this.incrementPlayCount(this.state.levelId);
@@ -3348,7 +3424,11 @@ export class VocabSprintGame {
     this.state.phase = this.state.words.length ? "ready" : "loading";
     this.state.laneCount = this.clampLaneCount(this.ui.laneCount.value);
     this.state.gameModeId = this.selectedGameModeId();
-    this.state.quizDirection = this.selectedQuizDirection();
+    const nextQuizDirection = this.selectedQuizDirection();
+    if (nextQuizDirection !== this.state.quizDirection) {
+      this.clearAnswerTextPoolCache();
+    }
+    this.state.quizDirection = nextQuizDirection;
     this.state.survivalEnabled = this.selectedSurvivalEnabled();
     this.state.score = 0;
     this.state.best = this.readBest();
@@ -3475,9 +3555,9 @@ export class VocabSprintGame {
       this.audio.playSfx("correct");
       this.playRecallAnswerWordAudio(lane.word);
       this.recordReview(lane.word, picked, "correct");
-      this.state.effects.push({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: this.colors.green });
+      this.pushEffect({ lane: laneIndex, text: `+${gain}`, y: lane.y, life: 0.7, color: this.colors.green });
       if (timeBonus > 0) {
-        this.state.effects.push({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: this.colors.gold });
+        this.pushEffect({ lane: laneIndex, text: this.formatTimeDelta(timeBonus), y: lane.y + 24, life: 0.7, color: this.colors.gold });
       }
       const timeText = timeBonus > 0 ? ` / ${this.formatTimeDelta(timeBonus)}` : "";
       this.addFeed(`${promptText} = ${correctAnswer}${timeText}`);
@@ -3496,7 +3576,7 @@ export class VocabSprintGame {
       this.addCardParticles(laneIndex, lane, "wrong");
       this.audio.playSfx("wrong");
       const penalty = this.state.settings.wrongTimePenalty;
-      this.state.effects.push({ lane: laneIndex, text: `-20 ${this.formatTimeDelta(-penalty)}`, y: lane.y, life: 0.55, color: this.colors.red });
+      this.pushEffect({ lane: laneIndex, text: `-20 ${this.formatTimeDelta(-penalty)}`, y: lane.y, life: 0.55, color: this.colors.red });
       this.addFeed(`${promptText}: 正解は ${correctAnswer} / ${this.formatTimeDelta(-penalty)}`);
       this.adjustTime(-penalty);
       const finishedForSurvival = this.maybeFinishForSurvival();
@@ -3529,7 +3609,7 @@ export class VocabSprintGame {
     this.addCardParticles(laneIndex, lane, "miss");
     this.audio.playSfx("miss");
     const penalty = this.state.settings.wrongTimePenalty;
-    this.state.effects.push({ lane: laneIndex, text: `MISS ${this.formatTimeDelta(-penalty)}`, y: this.guideLineY(this.canvasSize()) - 16, life: 0.65, color: this.colors.gold });
+    this.pushEffect({ lane: laneIndex, text: `MISS ${this.formatTimeDelta(-penalty)}`, y: this.guideLineY(this.canvasSize()) - 16, life: 0.65, color: this.colors.gold });
     this.addFeed(`${this.promptTextFor(lane.word)} = ${this.answerTextFor(lane.word)} / ${this.formatTimeDelta(-penalty)}`);
     this.adjustTime(-penalty);
     if (this.maybeFinishForSurvival()) {
@@ -3639,7 +3719,8 @@ export class VocabSprintGame {
       const travel = height + band * 2;
       const waveAmp = band * ribbon.sway;
       ctx.fillStyle = color;
-      for (const shift of [0, travel / 2]) {
+      for (let pass = 0; pass < 2; pass += 1) {
+        const shift = pass ? travel / 2 : 0;
         const baseY = ((t * ribbon.speed + seed + shift) % travel) - band;
         const wavePhase = t * 0.7 + seed + shift * 0.013;
         ctx.beginPath();
@@ -4045,7 +4126,7 @@ export class VocabSprintGame {
         this.ctx.fillStyle = effect.color;
         this.ctx.strokeStyle = effect.color;
         this.ctx.shadowColor = effect.color;
-        this.ctx.shadowBlur = (effect.shape === "spark" ? 12 : 8) * alpha;
+        this.ctx.shadowBlur = alpha > 0.18 ? (effect.shape === "spark" ? 8 : 5) * alpha : 0;
         if (effect.shape === "spark") {
           this.ctx.lineWidth = Math.max(1.1, radius * 0.48);
           this.ctx.beginPath();
@@ -4080,7 +4161,7 @@ export class VocabSprintGame {
         this.ctx.strokeStyle = effect.color;
         this.ctx.lineWidth = Math.max(1, 3.2 * alpha);
         this.ctx.shadowColor = effect.color;
-        this.ctx.shadowBlur = 10 * alpha;
+        this.ctx.shadowBlur = alpha > 0.18 ? 7 * alpha : 0;
         this.ctx.beginPath();
         this.ctx.arc(effect.x, effect.y, radius, 0, Math.PI * 2);
         this.ctx.stroke();
@@ -4097,7 +4178,7 @@ export class VocabSprintGame {
         const y = effect.y - cardHeight / 2;
 
         this.ctx.shadowColor = "rgba(240, 206, 108, 0.58)";
-        this.ctx.shadowBlur = 22 * alpha;
+        this.ctx.shadowBlur = alpha > 0.18 ? 16 * alpha : 0;
         this.roundRect(x, y, cardWidth, cardHeight, 10);
         this.ctx.fillStyle = revealBg;
         this.ctx.fill();
@@ -4135,7 +4216,7 @@ export class VocabSprintGame {
         this.ctx.textAlign = "center";
         this.ctx.textBaseline = "middle";
         this.ctx.shadowColor = effect.color;
-        this.ctx.shadowBlur = 8 * alpha;
+        this.ctx.shadowBlur = alpha > 0.18 ? 6 * alpha : 0;
         this.ctx.fillText(effect.text, laneCenter, effect.y);
       }
       this.ctx.restore();
@@ -4492,6 +4573,7 @@ export class VocabSprintGame {
         }
         const stayOnResult = this.state.phase === "over";
         this.state.quizDirection = this.normalizeQuizDirection(input.value);
+        this.clearAnswerTextPoolCache();
         this.savePreferences();
         this.state.effects = [];
         this.makeLanes();

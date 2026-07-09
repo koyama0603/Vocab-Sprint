@@ -7,6 +7,8 @@ const SFX_MAX_GAIN = 1.856;
 const WORD_AUDIO_OUTPUT_SCALE = 1.08;
 const WORD_AUDIO_ROOT = "assets/word-audio/en-us-edge-tts";
 const WORD_AUDIO_POOL_LIMIT = 24;
+// ネットワーク停滞時に再生待ちAudioが増え続けるのを防ぐ安全上限。
+const WORD_AUDIO_ACTIVE_LIMIT = 8;
 // 同一語が再生中に再度必要になったときの一時再生用Audio要素の再利用リング上限。
 // プール本体と同様、new Audio() の churn を避けるため作り直さず使い回す。
 const WORD_AUDIO_TRANSIENT_LIMIT = 4;
@@ -18,10 +20,12 @@ const WORD_AUDIO_RETRY_COOLDOWN_MS = 30000;
 const WORD_AUDIO_RETRY_COOLDOWN_MAX_MS = 120000;
 const WORD_AUDIO_FAILURE_WINDOW_MS = 12000;
 const WORD_AUDIO_FAILURE_THRESHOLD = 3;
+const WORD_AUDIO_FAILURE_URL_LIMIT = 64;
 const WORD_AUDIO_NETWORK_COOLDOWN_MS = 18000;
 // ロードが「遅い」（エラーではないが時間がかかる）と検知したら、先読みを一定時間控える。
 // 電波が悪いときに遅いロードを積み増して端末を圧迫するのを防ぐ（読み込みが復帰すれば自動で解除）。
 const WORD_AUDIO_SLOW_BACKOFF_MS = 8000;
+const WORD_AUDIO_SLOW_URL_LIMIT = 16;
 
 export class AudioEngine {
   constructor(getSettings, bgmTracks = []) {
@@ -46,6 +50,7 @@ export class AudioEngine {
     this.wordAudioActive = new Set();
     this.wordAudioCleanup = new Map();
     this.wordAudioTransient = new WeakSet();
+    this.wordAudioTransientActive = new Set();
     this.wordAudioTimers = new Set();
     this.wordAudioLoadMonitors = new Set();
     this.wordAudioQueueToken = 0;
@@ -55,6 +60,7 @@ export class AudioEngine {
     this.wordAudioNetworkCooldownUntil = 0;
     // ロードが遅いあいだ先読みを控える期限（part2: 電波劣化時の積み増し抑制）。
     this.wordAudioSlowUntil = 0;
+    this.wordAudioSlowUrls = new Set();
     // 一時再生用（クローン）Audio要素の再利用リング。再生終了後にここへ戻して使い回す。
     this.wordAudioTransientRing = [];
     this.noiseBuffer = null;
@@ -186,6 +192,10 @@ export class AudioEngine {
     if (this.wordAudioNetworkCooldownUntil <= now) {
       this.wordAudioNetworkCooldownUntil = 0;
     }
+    if (this.wordAudioSlowUntil <= now) {
+      this.wordAudioSlowUntil = 0;
+      this.wordAudioSlowUrls.clear();
+    }
   }
 
   wordAudioNetworkCoolingDown(now = Date.now()) {
@@ -214,7 +224,16 @@ export class AudioEngine {
   }
 
   // ロードが遅いと検知したら、しばらく先読みを控える（積み増し防止）。
-  markWordAudioSlow() {
+  markWordAudioSlow(url = "") {
+    if (url) {
+      if (!this.wordAudioSlowUrls.has(url) && this.wordAudioSlowUrls.size >= WORD_AUDIO_SLOW_URL_LIMIT) {
+        const oldest = this.wordAudioSlowUrls.values().next().value;
+        if (oldest) {
+          this.wordAudioSlowUrls.delete(oldest);
+        }
+      }
+      this.wordAudioSlowUrls.add(url);
+    }
     this.wordAudioSlowUntil = Date.now() + WORD_AUDIO_SLOW_BACKOFF_MS;
   }
 
@@ -224,8 +243,13 @@ export class AudioEngine {
     }
     this.wordAudioFailureTimes = [];
     this.wordAudioNetworkCooldownUntil = 0;
-    // ロードが正常に完了したら先読み抑制も解除（電波が復帰した合図）。
-    this.wordAudioSlowUntil = 0;
+    // 遅いと判定したURL自身が復帰した時だけ先読み抑制を解除する。
+    // 別URLのcanplayで即解除すると、電波劣化中に先読みが再開して取得が積み増される。
+    if (!url || this.wordAudioSlowUrls.delete(url)) {
+      if (!this.wordAudioSlowUrls.size) {
+        this.wordAudioSlowUntil = 0;
+      }
+    }
   }
 
   markWordAudioProblem(url) {
@@ -241,6 +265,14 @@ export class AudioEngine {
         count,
         retryAt: now + cooldown
       });
+      while (this.wordAudioFailures.size > WORD_AUDIO_FAILURE_URL_LIMIT) {
+        const oldest = this.wordAudioFailures.keys().next().value;
+        if (!oldest) {
+          break;
+        }
+        this.wordAudioFailures.delete(oldest);
+      }
+      this.wordAudioSlowUrls.delete(url);
     }
     this.wordAudioFailureTimes = this.wordAudioFailureTimes
       .filter((time) => now - time <= WORD_AUDIO_FAILURE_WINDOW_MS);
@@ -417,10 +449,15 @@ export class AudioEngine {
       this.releaseAudioElement(audio);
     }
     this.wordAudioTransientRing.length = 0;
+    this.wordAudioTransientActive.clear();
   }
 
   playableWordAudio(url) {
     if (this.wordAudioUrlCoolingDown(url)) {
+      return null;
+    }
+    if (this.wordAudioActive.size >= WORD_AUDIO_ACTIVE_LIMIT) {
+      this.markWordAudioSlow(url);
       return null;
     }
     const audio = this.ensureWordAudio(url, "auto");
@@ -436,6 +473,10 @@ export class AudioEngine {
 
   // 一時再生用のAudio要素をリングから取り出す（無ければ上限までのみ新規生成）。
   acquireTransientWordAudio(url) {
+    if (this.wordAudioTransientActive.size >= WORD_AUDIO_TRANSIENT_LIMIT) {
+      this.markWordAudioSlow(url);
+      return null;
+    }
     let audio = this.wordAudioTransientRing.pop();
     if (!audio) {
       audio = new Audio();
@@ -446,6 +487,7 @@ export class AudioEngine {
       audio.src = url;
     }
     this.wordAudioTransient.add(audio);
+    this.wordAudioTransientActive.add(audio);
     return audio;
   }
 
@@ -455,6 +497,7 @@ export class AudioEngine {
       return;
     }
     this.wordAudioTransient.delete(audio);
+    this.wordAudioTransientActive.delete(audio);
     audio.pause();
     try {
       audio.currentTime = 0;
@@ -502,7 +545,7 @@ export class AudioEngine {
       }
       warned = true;
       // 遅いロードを検知したら先読みを控える（電波劣化時の積み増しで端末が重くなるのを防ぐ）。
-      this.markWordAudioSlow();
+      this.markWordAudioSlow(url);
       this.emitWordAudioStatus({ type: "slow", url });
     }, WORD_AUDIO_LOAD_WARNING_MS);
     audio.addEventListener("canplay", ready, { once: true });
