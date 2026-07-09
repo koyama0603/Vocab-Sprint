@@ -1,6 +1,6 @@
 {
-  "version": "edc0ba44cdd47ac9",
-  "generatedAt": "2026-07-09T16:08:36.402Z",
+  "version": "def1aa1222dfbafb",
+  "generatedAt": "2026-07-09T16:22:55.739Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -40,7 +40,7 @@
     },
     {
       "url": "css/styles.css",
-      "revision": "84d8e988df071cb7642401c61b5443d6033c1fde91286191c14c58ab0ee84487"
+      "revision": "a133324eeec0cd098447e5d999dd5b6ac439ca8e111bd5fdec7ee548aba46fda"
     },
     {
       "url": "data/a1-part1.csv",
@@ -204,7 +204,7 @@
     },
     {
       "url": "js/game.js",
-      "revision": "216520a071299de1c917fe589904c6ace27a200f34aaafbae5317ea8b4e57b77"
+      "revision": "1ed875e48c522941111137c386edbde502dda86639d0b9a88bea72599d63b988"
     },
     {
       "url": "js/levels.config.js",
@@ -220,7 +220,7 @@
     },
     {
       "url": "js/words.js",
-      "revision": "519fbc045b9fb2ff13fdfb52016688e2dc13075c0e61cc966dbf98cf0c4baec0"
+      "revision": "c1441dd74e3643f369fa89fcd05bf84f421c63be248b2a56a3b016277c55ef3e"
     },
     {
       "url": "manifest.webmanifest",

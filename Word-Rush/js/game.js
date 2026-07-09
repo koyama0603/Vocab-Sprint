@@ -1627,7 +1627,7 @@ export class VocabSprintGame {
 
     try {
       const words = await Promise.race([
-        loadWords(level, { signal: loadController?.signal }),
+        loadWords(level, { signal: loadController?.signal, forceReload: true }),
         loadTimeout
       ]);
       if (token !== this.loadToken) {

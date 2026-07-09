@@ -1140,6 +1140,13 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
   width: min(680px, calc(100% - 24px));
 }
 
+.overlay.error-mode .overlay-head {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
 .overlay.error-mode .overlay-panel h2 {
   width: 100%;
   max-width: none;
@@ -1149,7 +1156,7 @@ body[data-lanes="2"] .answer-button .word.text-very-long {
 }
 
 .overlay.error-mode .overlay-panel p {
-  margin-top: 10px;
+  margin: 0;
   max-width: none;
 }
 

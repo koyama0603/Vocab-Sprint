@@ -94,6 +94,9 @@ async function readWords(level, options = {}) {
 
 export async function loadWords(level, options = {}) {
   const cacheKey = level.file;
+  if (options.forceReload) {
+    wordCache.delete(cacheKey);
+  }
   let request = wordCache.get(cacheKey);
   if (!wordCache.has(cacheKey)) {
     request = readWords(level, options);
