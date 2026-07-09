@@ -26,6 +26,10 @@ const WORD_AUDIO_NETWORK_COOLDOWN_MS = 18000;
 // 電波が悪いときに遅いロードを積み増して端末を圧迫するのを防ぐ（読み込みが復帰すれば自動で解除）。
 const WORD_AUDIO_SLOW_BACKOFF_MS = 8000;
 const WORD_AUDIO_SLOW_URL_LIMIT = 16;
+// アイドル（非プレイ・無音）状態でAudioContextを止めるまでの猶予。
+// BGMのフェードアウト（最長1800ms）が終わってから止めたいので余裕をもたせる。
+const CONTEXT_SUSPEND_DELAY_MS = 2200;
+const WORD_AUDIO_IDLE_RELEASE_MS = 15000;
 
 export class AudioEngine {
   constructor(getSettings, bgmTracks = []) {
@@ -43,6 +47,8 @@ export class AudioEngine {
     this.bgmFadeFrame = 0;
     this.bgmFadeToken = 0;
     this.bgmFading = false;
+    // 無音アイドル時にAudioContextをsuspendするための予約タイマー。
+    this.contextSuspendTimer = 0;
     this.wordAudioRevision = "";
     this.wordAudioRevisionReady = null;
     this.wordAudioPool = new Map();
@@ -63,6 +69,8 @@ export class AudioEngine {
     this.wordAudioSlowUrls = new Set();
     // 一時再生用（クローン）Audio要素の再利用リング。再生終了後にここへ戻して使い回す。
     this.wordAudioTransientRing = [];
+    // 結果/単語一覧など非プレイ画面で手動再生した単語音声プールを、無音アイドル後に解放する。
+    this.wordAudioIdleReleaseTimer = 0;
     this.noiseBuffer = null;
     this.ctx = null;
     this.master = null;
@@ -439,6 +447,7 @@ export class AudioEngine {
   // iOSではHTMLAudioElementがデコーダ資源を掴むため、長時間の一時停止中に保持し続けない。
   // 必要になれば ensureWordAudio が作り直すので機能への影響はない。
   releaseWordAudioPool() {
+    this.clearWordAudioIdleReleaseTimer();
     this.stopWordAudio();
     for (const [url, entry] of Array.from(this.wordAudioPool.entries())) {
       this.releaseWordAudioEntry(url, entry);
@@ -609,6 +618,7 @@ export class AudioEngine {
     if (!this.canPrefetchWordAudio()) {
       return;
     }
+    this.clearWordAudioIdleReleaseTimer();
     const preload = options.preload || "metadata";
     const limit = Math.max(1, Math.min(WORD_AUDIO_PREFETCH_LIMIT, Number(options.limit) || WORD_AUDIO_PREFETCH_LIMIT));
     const unique = [...new Set((Array.isArray(urls) ? urls : [urls]).filter(Boolean))]
@@ -674,6 +684,7 @@ export class AudioEngine {
     if (!this.wordAudioEnabled() || !url || !globalThis.Audio) {
       return;
     }
+    this.clearWordAudioIdleReleaseTimer();
     if (!options.fromQueue && options.cancelQueued) {
       this.wordAudioQueueToken += 1;
     }
@@ -687,7 +698,8 @@ export class AudioEngine {
         this.playWordAudio(url, {
           shouldPlay,
           fromQueue: options.fromQueue,
-          cancelQueued: options.cancelQueued
+          cancelQueued: options.cancelQueued,
+          releaseWhenIdle: options.releaseWhenIdle
         });
       }, delayMs);
       return;
@@ -707,6 +719,9 @@ export class AudioEngine {
     const clearLoadMonitor = this.monitorWordAudioLoad(audio, url);
     const cleanup = this.trackWordAudio(audio, WORD_AUDIO_PLAY_TIMEOUT_MS, (reason) => {
       clearLoadMonitor(reason === "cancel" ? "cancel" : reason === "ended" ? "ready" : "error");
+      if (options.releaseWhenIdle && reason !== "cancel") {
+        this.scheduleWordAudioIdleRelease();
+      }
     }, url);
     audio.play().then(() => {
       clearLoadMonitor("ready");
@@ -719,13 +734,14 @@ export class AudioEngine {
 
   playWordAudioQueue(items, options = {}) {
     if (!this.wordAudioEnabled() || !globalThis.Audio) {
-      return;
+      return null;
     }
+    this.clearWordAudioIdleReleaseTimer();
     const queue = (Array.isArray(items) ? items : [items])
       .map((item) => (typeof item === "string" ? { url: item } : item))
       .filter((item) => item?.url);
     if (!queue.length) {
-      return;
+      return null;
     }
     const token = this.wordAudioQueueToken + 1;
     this.wordAudioQueueToken = token;
@@ -733,6 +749,77 @@ export class AudioEngine {
     const intervalMs = Math.max(0, Number(options.intervalMs) || 0);
     const gapMs = Math.max(0, Number(options.gapMs) || 0);
     const maxItemMs = Math.max(700, Number(options.maxItemMs) || 1800);
+    const entries = queue.map((item) => ({ item, started: false }));
+    let serial = 0;
+    let done = false;
+
+    const isActive = () => !done && this.wordAudioQueueToken === token;
+    const shouldPlayEntry = (entry) => {
+      const shouldPlay = typeof entry.item.shouldPlay === "function" ? entry.item.shouldPlay : null;
+      return !shouldPlay || shouldPlay();
+    };
+    const nextEntry = () => {
+      while (entries.length) {
+        const entry = entries.find((candidate) => !candidate.started);
+        if (!entry) {
+          done = true;
+          return null;
+        }
+        entry.started = true;
+        if (shouldPlayEntry(entry)) {
+          return entry;
+        }
+      }
+      done = true;
+      return null;
+    };
+    const skipEntries = (skip) => {
+      if (typeof skip !== "function") {
+        return;
+      }
+      for (const entry of entries) {
+        if (!entry.started && skip(entry.item)) {
+          entry.started = true;
+        }
+      }
+    };
+    const playFrom = async (entry, runSerial) => {
+      let current = entry;
+      while (current && isActive() && runSerial === serial) {
+        await this.playWordAudioQueueItem(current.item.url, token, maxItemMs);
+        if (!isActive() || runSerial !== serial) {
+          return;
+        }
+        if (gapMs) {
+          await this.waitWordAudioTimer(gapMs);
+          if (!isActive() || runSerial !== serial) {
+            return;
+          }
+        }
+        current = nextEntry();
+      }
+    };
+    const startFromNext = (skip = null) => {
+      if (!isActive()) {
+        return false;
+      }
+      skipEntries(skip);
+      const entry = nextEntry();
+      if (!entry) {
+        return false;
+      }
+      serial += 1;
+      playFrom(entry, serial);
+      return true;
+    };
+
+    const controller = {
+      advance: (options = {}) => startFromNext(options.skip),
+      cancel: () => {
+        done = true;
+        serial += 1;
+      }
+    };
 
     if (intervalMs) {
       queue.forEach((item, index) => {
@@ -750,29 +837,21 @@ export class AudioEngine {
           });
         }, delayMs + intervalMs * index);
       });
-      return;
+      return controller;
     }
 
     const playNext = async () => {
       if (delayMs) {
         await this.waitWordAudioTimer(delayMs);
       }
-      for (const item of queue) {
-        if (this.wordAudioQueueToken !== token) {
-          return;
-        }
-        const shouldPlay = typeof item.shouldPlay === "function" ? item.shouldPlay : null;
-        if (shouldPlay && !shouldPlay()) {
-          continue;
-        }
-        await this.playWordAudioQueueItem(item.url, token, maxItemMs);
-        if (gapMs && this.wordAudioQueueToken === token) {
-          await this.waitWordAudioTimer(gapMs);
-        }
+      if (!isActive() || serial !== 0) {
+        return;
       }
+      startFromNext();
     };
 
     playNext();
+    return controller;
   }
 
   playWordAudioQueueItem(url, token, maxItemMs) {
@@ -852,6 +931,70 @@ export class AudioEngine {
     }
   }
 
+  clearContextSuspendTimer() {
+    if (this.contextSuspendTimer) {
+      clearTimeout(this.contextSuspendTimer);
+      this.contextSuspendTimer = 0;
+    }
+  }
+
+  clearWordAudioIdleReleaseTimer() {
+    if (this.wordAudioIdleReleaseTimer) {
+      clearTimeout(this.wordAudioIdleReleaseTimer);
+      this.wordAudioIdleReleaseTimer = 0;
+    }
+  }
+
+  scheduleWordAudioIdleRelease(delayMs = WORD_AUDIO_IDLE_RELEASE_MS) {
+    if (!globalThis.Audio) {
+      return;
+    }
+    this.clearWordAudioIdleReleaseTimer();
+    this.wordAudioIdleReleaseTimer = setTimeout(() => {
+      this.wordAudioIdleReleaseTimer = 0;
+      this.releaseWordAudioPoolIfIdle();
+    }, Math.max(0, delayMs));
+  }
+
+  releaseWordAudioPoolIfIdle() {
+    if (this.wordAudioActive.size || this.wordAudioTimers.size || this.wordAudioLoadMonitors.size) {
+      this.scheduleWordAudioIdleRelease();
+      return;
+    }
+    if (this.wordAudioPool.size || this.wordAudioTransientRing.length) {
+      this.releaseWordAudioPool();
+    }
+  }
+
+  // アイドル（非プレイ・無音）状態でAudioContextを止める予約を入れる。
+  // 無音でも running のままだとオーディオ描画スレッドが常時CPUを起こし続け、
+  // iOSでは長時間放置の発熱源になる（放置後にスロットリングで重く感じる原因）。
+  // 音を出す経路（init / startBgm / playSfx）で必ず resume される。
+  scheduleContextSuspend(delayMs = CONTEXT_SUSPEND_DELAY_MS) {
+    if (!this.ctx || typeof this.ctx.suspend !== "function") {
+      return;
+    }
+    this.clearContextSuspendTimer();
+    this.contextSuspendTimer = setTimeout(() => {
+      this.contextSuspendTimer = 0;
+      this.suspendContextIfIdle({ retryIfBusy: true });
+    }, Math.max(0, delayMs));
+  }
+
+  suspendContextIfIdle(options = {}) {
+    if (!this.ctx || this.ctx.state !== "running" || typeof this.ctx.suspend !== "function") {
+      return;
+    }
+    // フェード中・BGM再生中は止めない。HTMLAudio直のBGM試聴/単語音声はContextに非依存。
+    if (this.bgmFading || (this.bgmAudio && !this.bgmAudio.paused)) {
+      if (options.retryIfBusy) {
+        this.scheduleContextSuspend();
+      }
+      return;
+    }
+    this.ctx.suspend().catch(() => {});
+  }
+
   init() {
     if (!this.supported) {
       return false;
@@ -866,6 +1009,8 @@ export class AudioEngine {
     if (this.ctx.state === "suspended") {
       this.ctx.resume().catch(() => {});
     }
+    // 音を出す＝アクティブになったので、予約済みのアイドルsuspendを取り消す。
+    this.clearContextSuspendTimer();
     return true;
   }
 
@@ -1137,6 +1282,8 @@ export class AudioEngine {
     if (!this.bgmEnabled() || getPhase() !== "playing" || !globalThis.Audio) {
       return;
     }
+    // suspend中のAudioContextを確実に起こす（pause→再開でBGMを鳴らすため）。
+    this.init();
     this.clearBgmFade();
     this.stopBgmPreview();
     const track = this.chooseTrack(Boolean(options.restart));

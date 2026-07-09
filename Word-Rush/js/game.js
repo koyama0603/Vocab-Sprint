@@ -393,6 +393,7 @@ export class VocabSprintGame {
     this.answerTextPoolKey = "";
     this.answerTextPool = [];
     this.copyToastTimer = 0;
+    this.startWordAudioSequence = null;
     // カード再出現の setTimeout を管理する。放置すると一時停止/リスタートを跨いで発火し、
     // レーン喪失や新ゲームのカード差し替えを起こすため、状態遷移時に必ずクリアする。
     this.spawnTimers = new Set();
@@ -1023,6 +1024,7 @@ export class VocabSprintGame {
     if (this.state.phase === "playing") {
       this.state.phase = "paused";
       this.stopRenderLoop();
+      this.clearStartWordAudioSequence();
       this.clearSpawnTimers();
       this.audio.fadeOutBgm(650);
       this.audio.stopWordAudio();
@@ -1037,6 +1039,8 @@ export class VocabSprintGame {
     this.updateUi();
     this.renderAnswerButtons();
     this.ui.returnConfirm?.focus();
+    // Return確認画面で長時間放置された場合も、無音になったらAudioContextを止める。
+    this.audio.scheduleContextSuspend();
   }
 
   closeReturnConfirmModal() {
@@ -1051,6 +1055,7 @@ export class VocabSprintGame {
       this.state.phase = "playing";
       this.state.lastTime = performance.now();
       this.lastWordAudioPrefetchAt = 0;
+      this.audio.clearContextSuspendTimer();
       this.audio.startBgm(() => this.state.phase);
       this.respawnStalledLanes();
       this.prefetchUpcomingWordAudio({ force: true });
@@ -2206,6 +2211,7 @@ export class VocabSprintGame {
     if (!this.shouldAutoPlayWordAudio()) {
       return;
     }
+    this.clearStartWordAudioSequence();
     const items = [];
     for (let i = 0; i < this.state.lanes.length; i += 1) {
       const lane = this.state.lanes[i];
@@ -2213,22 +2219,41 @@ export class VocabSprintGame {
       const url = this.wordAudioUrlFor(lane?.word);
       if (lane?.word && url) {
         items.push({
+          laneIndex: i,
           url,
           shouldPlay: () =>
             this.state.phase === "playing"
             && this.state.lanes[i] === lane
+            && !lane.locked
             && this.wordStatKey(this.state.lanes[i]?.word) === wordKey
         });
       }
     }
     // intervalMs（固定間隔）ではなく gapMs（順次再生: 各発音終了後に一定の間）を使う。
     // 固定間隔だとモバイルの再生開始遅延で発音が重なって詰まるため。
-    this.audio.playWordAudioQueue(items, {
+    this.startWordAudioSequence = this.audio.playWordAudioQueue(items, {
       delayMs: initialDelayMs,
       gapMs: WORD_AUDIO_START_GAP_MS,
       maxItemMs: WORD_AUDIO_START_MAX_ITEM_MS
     });
     this.prefetchUpcomingWordAudio({ force: true });
+  }
+
+  clearStartWordAudioSequence() {
+    this.startWordAudioSequence?.cancel?.();
+    this.startWordAudioSequence = null;
+  }
+
+  advanceStartWordAudioSequence(laneIndex) {
+    if (!this.startWordAudioSequence || this.state.phase !== "playing") {
+      return;
+    }
+    const advanced = this.startWordAudioSequence.advance?.({
+      skip: (item) => item?.laneIndex === laneIndex
+    });
+    if (!advanced) {
+      this.startWordAudioSequence = null;
+    }
   }
 
   startLaneFade(lane, kind, duration = CARD_FADE_OUT_TIME) {
@@ -2870,7 +2895,7 @@ export class VocabSprintGame {
     this.hideReviewTooltip();
     const url = this.wordAudioUrlFor(item);
     if (url) {
-      this.audio.playWordAudio(url);
+      this.audio.playWordAudio(url, { releaseWhenIdle: this.state.phase !== "playing" });
     }
   }
 
@@ -3329,6 +3354,7 @@ export class VocabSprintGame {
     this.audio.stopBgmPreview();
     // 前ゲームの残タイマー・再生中の単語音声を持ち越さない。
     this.stopRenderLoop();
+    this.clearStartWordAudioSequence();
     this.clearSpawnTimers();
     this.audio.stopWordAudio();
     this.hideNetworkToast({ clear: true });
@@ -3380,6 +3406,7 @@ export class VocabSprintGame {
     this.recordUnansweredLanes();
     this.state.phase = "over";
     this.stopRenderLoop();
+    this.clearStartWordAudioSequence();
     this.hideNetworkToast({ clear: true });
     this.clearSpawnTimers();
     this.hideReviewTooltip();
@@ -3398,10 +3425,13 @@ export class VocabSprintGame {
     this.audio.playSfx("finish");
     this.updateUi();
     this.renderAnswerButtons();
+    // 結果画面での放置に備え、無音になったらAudioContextを止める。
+    this.audio.scheduleContextSuspend();
   }
 
   returnToTitle() {
     this.stopRenderLoop();
+    this.clearStartWordAudioSequence();
     this.clearSpawnTimers();
     this.audio.fadeOutBgm(650);
     this.audio.stopWordAudio();
@@ -3453,6 +3483,8 @@ export class VocabSprintGame {
     this.updateUi();
     this.renderAnswerButtons();
     this.drawBoard();
+    // タイトル画面での放置に備え、無音になったらAudioContextを止める。
+    this.audio.scheduleContextSuspend();
   }
 
   pauseGame() {
@@ -3460,6 +3492,7 @@ export class VocabSprintGame {
       this.state.phase = "paused";
       this.stopRenderLoop();
       // 長時間の一時停止に備え、タイマー・単語音声・プール済みAudio要素をすべて解放する。
+      this.clearStartWordAudioSequence();
       this.clearSpawnTimers();
       this.audio.fadeOutBgm(650);
       this.audio.stopWordAudio();
@@ -3478,11 +3511,15 @@ export class VocabSprintGame {
         titleMode: true,
         pauseMode: true
       });
+      // 一時停止中の放置に備え、無音になったらAudioContextを止める。
+      this.audio.scheduleContextSuspend();
     } else if (this.state.phase === "paused") {
       this.state.phase = "playing";
       this.state.lastTime = performance.now();
       this.lastWordAudioPrefetchAt = 0;
       this.hideOverlay();
+      // 再開したので、予約済みのアイドルsuspendを取り消す（BGM無効時でも確実に）。
+      this.audio.clearContextSuspendTimer();
       this.audio.startBgm(() => this.state.phase);
       // 一時停止時に破棄した spawn タイマーの分、消えたままのレーンを補充する。
       this.respawnStalledLanes();
@@ -3561,6 +3598,7 @@ export class VocabSprintGame {
       }
       const timeText = timeBonus > 0 ? ` / ${this.formatTimeDelta(timeBonus)}` : "";
       this.addFeed(`${promptText} = ${correctAnswer}${timeText}`);
+      this.advanceStartWordAudioSequence(laneIndex);
       this.scheduleSpawn(laneIndex, CARD_FADE_OUT_TIME * 1000);
     } else {
       lane.locked = true;
@@ -3586,6 +3624,7 @@ export class VocabSprintGame {
         this.refreshAnswerButtons();
         return;
       }
+      this.advanceStartWordAudioSequence(laneIndex);
       this.scheduleSpawn(laneIndex, (CARD_FADE_OUT_TIME + 0.08) * 1000);
     }
     this.updateUi();
@@ -4490,6 +4529,8 @@ export class VocabSprintGame {
     this.hideNetworkToast({ clear: true });
     this.clearReviewTooltipPress();
     this.clearAnswerFocus();
+    // バックグラウンド/放置に備え、無音になったらAudioContextを止める。
+    this.audio.scheduleContextSuspend();
   }
 
   attachEvents() {
