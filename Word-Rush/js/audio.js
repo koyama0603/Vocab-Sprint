@@ -297,11 +297,42 @@ export class AudioEngine {
     }
   }
 
-  releaseAudioElement(audio) {
+  pauseWordAudioElement(audio, resetTime = true) {
     if (!audio) {
       return;
     }
     audio.pause();
+    if (resetTime) {
+      try {
+        audio.currentTime = 0;
+      } catch {
+        // Some mobile browsers reject currentTime changes before metadata exists.
+      }
+    }
+  }
+
+  isWordAudioSource(audio, url) {
+    if (!audio || !url) {
+      return false;
+    }
+    const attributeUrl = audio.getAttribute?.("src") || "";
+    const currentUrl = audio.currentSrc || audio.src || attributeUrl;
+    if (attributeUrl === url || currentUrl === url) {
+      return true;
+    }
+    try {
+      const base = globalThis.location?.href || "";
+      return new URL(currentUrl, base).href === new URL(url, base).href;
+    } catch {
+      return false;
+    }
+  }
+
+  releaseAudioElement(audio) {
+    if (!audio) {
+      return;
+    }
+    this.pauseWordAudioElement(audio, false);
     audio.removeAttribute("src");
     try {
       audio.load();
@@ -420,7 +451,7 @@ export class AudioEngine {
     if (typeof oldestEntry.dispose === "function") {
       oldestEntry.dispose();
     }
-    oldestEntry.audio.pause();
+    this.pauseWordAudioElement(oldestEntry.audio);
     return oldestEntry.audio;
   }
 
@@ -511,12 +542,7 @@ export class AudioEngine {
     }
     this.wordAudioTransient.delete(audio);
     this.wordAudioTransientActive.delete(audio);
-    audio.pause();
-    try {
-      audio.currentTime = 0;
-    } catch {
-      // メタデータ未取得時などは無視。
-    }
+    this.pauseWordAudioElement(audio);
     if (this.wordAudioTransientRing.length < WORD_AUDIO_TRANSIENT_LIMIT) {
       this.wordAudioTransientRing.push(audio);
     } else {
@@ -580,7 +606,12 @@ export class AudioEngine {
     // ended/error が発火しないまま停滞した場合の watchdog。
     // これが無いと wordAudioActive にAudio要素が溜まり続け、プールの追い出しも効かなくなる。
     let watchdog = 0;
+    let done = false;
     const cleanup = (reason = "ended") => {
+      if (done) {
+        return;
+      }
+      done = true;
       if (watchdog) {
         clearTimeout(watchdog);
         watchdog = 0;
@@ -607,7 +638,7 @@ export class AudioEngine {
     };
     watchdog = setTimeout(() => {
       watchdog = 0;
-      audio.pause();
+      this.pauseWordAudioElement(audio);
       cleanup("timeout");
     }, maxMs);
     const ended = () => cleanup("ended");
@@ -671,13 +702,19 @@ export class AudioEngine {
     this.clearWordAudioTimers();
     this.clearWordAudioLoadMonitors();
     for (const audio of Array.from(this.wordAudioActive)) {
-      audio.pause();
-      try {
-        audio.currentTime = 0;
-      } catch {
-        // Some mobile browsers reject currentTime changes before metadata exists.
-      }
+      this.pauseWordAudioElement(audio);
       this.wordAudioCleanup.get(audio)?.("cancel");
+    }
+    // active から外れた直後の pooled/transient 要素にも停止をかける。
+    // iOS系で play() 解決が遅れた場合に、前ゲームの発音が次ゲーム冒頭へ残るのを防ぐ。
+    for (const entry of this.wordAudioPool.values()) {
+      this.pauseWordAudioElement(entry.audio);
+    }
+    for (const audio of this.wordAudioTransientRing) {
+      this.pauseWordAudioElement(audio);
+    }
+    for (const audio of Array.from(this.wordAudioTransientActive)) {
+      this.recycleTransientWordAudio(audio);
     }
     this.wordAudioActive.clear();
     this.wordAudioCleanup.clear();
@@ -727,7 +764,14 @@ export class AudioEngine {
         this.scheduleWordAudioIdleRelease();
       }
     }, url);
+    const isSameSource = () => this.isWordAudioSource(audio, url);
     audio.play().then(() => {
+      if (!this.wordAudioActive.has(audio)) {
+        if (isSameSource()) {
+          this.pauseWordAudioElement(audio);
+        }
+        return;
+      }
       clearLoadMonitor("ready");
     }).catch(() => {
       clearLoadMonitor("error");
@@ -907,7 +951,15 @@ export class AudioEngine {
       this.wordAudioCleanup.set(audio, finish);
       audio.addEventListener("ended", finishReady, { once: true });
       audio.addEventListener("error", finishError, { once: true });
+      const isSameSource = () => this.isWordAudioSource(audio, url);
       audio.play().then(() => {
+        if (this.wordAudioQueueToken !== token || !this.wordAudioActive.has(audio)) {
+          if (isSameSource()) {
+            this.pauseWordAudioElement(audio);
+          }
+          finish("cancel");
+          return;
+        }
         clearLoadMonitor("ready");
       }).catch(() => finish("error"));
     });

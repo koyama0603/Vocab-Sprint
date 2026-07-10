@@ -870,6 +870,8 @@ export class VocabSprintGame {
     this.renderWordListModal();
     this.state.wordListOpen = true;
     this.ui.wordListModal.classList.remove("hidden");
+    requestAnimationFrame(() => this.fitWordListTitle());
+    document.fonts?.ready?.then(() => this.fitWordListTitle()).catch(() => {});
     this.updateUi();
     this.ui.wordListClose?.focus();
   }
@@ -893,6 +895,7 @@ export class VocabSprintGame {
     const level = this.activeLevel();
     if (this.ui.wordListTitle) {
       this.ui.wordListTitle.textContent = `${level.label} - Word List`;
+      this.fitWordListTitle();
     }
 
     const fragment = document.createDocumentFragment();
@@ -977,6 +980,22 @@ export class VocabSprintGame {
       : column.defaultDirection;
     this.state.wordListSort = { key: column.key, direction };
     this.renderWordListModal();
+  }
+
+  fitWordListTitle() {
+    const element = this.ui.wordListTitle;
+    if (!element || element.closest(".word-list-modal")?.classList.contains("hidden")) {
+      return;
+    }
+    element.style.fontSize = "";
+    const max = Number.parseFloat(getComputedStyle(element).fontSize) || 38;
+    const min = window.matchMedia?.("(max-width: 520px)")?.matches ? 13 : 16;
+    let size = max;
+    const fits = () => element.scrollWidth <= element.clientWidth;
+    while (size > min && !fits()) {
+      size = Math.max(min, size - 0.5);
+      element.style.fontSize = `${size}px`;
+    }
   }
 
   sortedWordListWords() {
@@ -4706,6 +4725,7 @@ export class VocabSprintGame {
       this.resizeCanvas();
       this.positionLevelMenu();
       this.fitAnswerTextElements();
+      this.fitWordListTitle();
       this.fitAllStatRows();
       this.hideReviewTooltip();
       this.drawBoard();

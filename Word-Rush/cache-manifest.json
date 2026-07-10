@@ -1,6 +1,6 @@
 {
-  "version": "def1aa1222dfbafb",
-  "generatedAt": "2026-07-09T16:22:55.739Z",
+  "version": "6233812f248cada4",
+  "generatedAt": "2026-07-10T14:28:27.398Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -40,147 +40,207 @@
     },
     {
       "url": "css/styles.css",
-      "revision": "a133324eeec0cd098447e5d999dd5b6ac439ca8e111bd5fdec7ee548aba46fda"
+      "revision": "fbecd13da1829be3ab13234717937d684def12c84b858b9be367d2701ea33b1d"
     },
     {
-      "url": "data/a1-part1.csv",
-      "revision": "913fc4c1f83419fb59401cb86404b3de1708b34dfa1d4f6253c195dae31ace39"
+      "url": "data/a1-part01.csv",
+      "revision": "30dd68b1e0ff60cc821ff1a7f514e5e1d6bb3b42b24c090f46b9f32ba1ba9824"
     },
     {
-      "url": "data/a1-part2.csv",
-      "revision": "c0ac3197cd043e955a2cfd627b474278ce7376ba01db12e1f74eda7e105adc6c"
+      "url": "data/a1-part02.csv",
+      "revision": "cfd7009f6e9eef58f361a1a1af0d8e4796ed31bd1b687e6e3f2840887507f6af"
     },
     {
-      "url": "data/a1-part3.csv",
-      "revision": "0a2474dc5044aac6da32b59d4b806e9409865763514829fd10cffa35268fff00"
+      "url": "data/a1-part03.csv",
+      "revision": "abf8010de781f7472a4d4b8e5daaf10f2e8445ed23ce90b110f82dcc72f8ea87"
     },
     {
-      "url": "data/a1-part4.csv",
-      "revision": "8d596032deb1160874bcc2ecb8c2d70503adc9d5436fb3c1b35ea036f49c3ac6"
+      "url": "data/a1-part04.csv",
+      "revision": "90cd385f9a47c4b3b1c37acba416d0fe94d8ba2b9e7ab46e9a25a85ce25b63af"
     },
     {
-      "url": "data/a1-part5.csv",
-      "revision": "bbd2cad2571f29c462ae1863774708d6aaaa71c04a57ea9f66dd9b9f16fedf12"
+      "url": "data/a1-part05.csv",
+      "revision": "b0baac01087299c72597e1091fab18efa9ccd21d3ac62155c1d8c5e8a836b0ee"
     },
     {
-      "url": "data/a1-part6.csv",
-      "revision": "1b135882f4163a625168b99a0456ac4cef1660b2301edc4052e739693ea76bac"
+      "url": "data/a1-part06.csv",
+      "revision": "8081257bbd9d8a3437aa5d289fb64fe6225931aa15aed1c78967ac648704c43c"
     },
     {
-      "url": "data/a1-part7.csv",
-      "revision": "4f2b5df73ccff21f74289a042cf4159e749c0f4516d3ca62f7585b32544f9824"
+      "url": "data/a1-part07.csv",
+      "revision": "6873cbbcf318045fd8107278d242d0cbd8fd397ada49444422b3defd58621405"
     },
     {
-      "url": "data/a1-part8.csv",
-      "revision": "718181ea06d0cf65bf21baf4a228a0b0aa79e228d154a22f031374be868566e7"
+      "url": "data/a1-part08.csv",
+      "revision": "7608497398aed972899047c842a984b7b0a0886096f76f7e61e80823c16d8cb7"
     },
     {
-      "url": "data/a2-part1.csv",
-      "revision": "427def9dc871ebf5be6c1e93ac2c3e5dceffdf2497feb76a7ec6933ee5f5218e"
+      "url": "data/a2-part01.csv",
+      "revision": "393d18f328e2d0f7483117108e0c60eefb89e49487b9f849123a74d9aa0d3ad9"
     },
     {
-      "url": "data/a2-part2.csv",
-      "revision": "e59b90f5d240fb7d15df11af1b0c84b3afb5020eb824c597a7b0f1a7673255d4"
+      "url": "data/a2-part02.csv",
+      "revision": "8c6b2edbc74b98dfb0e7bdb1e0178973b6364cfc41755eab6ae62808e9740ee9"
     },
     {
-      "url": "data/a2-part3.csv",
-      "revision": "9cd4edfee78e6d7f95cebe671f98d2646d3d8c598745f039f1dfda7359a4037a"
+      "url": "data/a2-part03.csv",
+      "revision": "9efcee92a79ff40199baea9fc6ada78475f77992a467c705b32fd46a9bde211f"
     },
     {
-      "url": "data/a2-part4.csv",
-      "revision": "93520cd1c9e12571df369cfade37330a8a0196fe10ca833157a7bf7e77c1f4fd"
+      "url": "data/a2-part04.csv",
+      "revision": "1e2f83b20e565fbd21f40546ad93e8d3a4c3f7513745faa016946baa907c952d"
     },
     {
-      "url": "data/a2-part5.csv",
-      "revision": "a16401abfdd87c0cbac661c99153d6c4b2eedb6acc455773e16aff0b34e2cc0b"
+      "url": "data/a2-part05.csv",
+      "revision": "0d1a166f509a36bf1629062eb94d8060f5e3f98a85cfbb476403e5f876c0e192"
     },
     {
-      "url": "data/a2-part6.csv",
-      "revision": "55328f0f5ea5bb5eddb4e422bb0fe6b17b887d0341f2fa7fcd5e8c29ef0ca3c8"
+      "url": "data/a2-part06.csv",
+      "revision": "a8f3e622f1fcd87159e065df7fdbbc6305a22e45ff7bc7adcad0bab0af4ca946"
     },
     {
-      "url": "data/a2-part7.csv",
-      "revision": "a0e29e6d26583cf436384291f66e642b4b429d62cb9d9fa75dbb8732af975c82"
+      "url": "data/a2-part07.csv",
+      "revision": "c296ba4f94f6fffb07ac8a3bcdcb52862355e1729f2e21135ff9bd8008560771"
     },
     {
-      "url": "data/b1-part1.csv",
-      "revision": "0812681e768d442f485fb076f593a3770b6655b40999922eea90f73cdf44425f"
+      "url": "data/a2-part08.csv",
+      "revision": "91c1a3ef55e24ce6d0a7dcc6a83e3600898f195d3037e8f863578a00458237f5"
     },
     {
-      "url": "data/b1-part2.csv",
-      "revision": "dee836fec83e4d37d8cb1830cb598a0f2e7f80429f7fe203544d90689ac4955a"
+      "url": "data/b1-part01.csv",
+      "revision": "0e4f689f798439a58ca501c4056fa321e2bddfc61694906d8ff2e183683a5388"
     },
     {
-      "url": "data/b1-part3.csv",
-      "revision": "bac4c4c8dc96414c5ac59c8d8578544c56400ab1e4712e3140bc03245505fd56"
+      "url": "data/b1-part02.csv",
+      "revision": "6fecf236282d9a281c6328cf6be4ccd83062c2ff3ae65b71132368e2b759062b"
     },
     {
-      "url": "data/b1-part4.csv",
-      "revision": "39f26f911b96dab918285dcaeef68ade7f53d861e14da0acddfe6ee51077c752"
+      "url": "data/b1-part03.csv",
+      "revision": "bc98c29da057eaa4da14f0453c7fa441485a541dab06e31ed6fdddb33628bada"
     },
     {
-      "url": "data/b1-part5.csv",
-      "revision": "d32805038183277723790748b111e00a6ac18a6461241efdf13a9272d82e88dc"
+      "url": "data/b1-part04.csv",
+      "revision": "7f8b7dce96bb1975251821d516854aeb6d1427d6621037362075f999fb3981a7"
     },
     {
-      "url": "data/b1-part6.csv",
-      "revision": "4bffccf331f1146507078a31daf53323606245f9b14aeae947dd415b3193b56a"
+      "url": "data/b1-part05.csv",
+      "revision": "c80c56d4becc683c233c5a76a6d8225020225e32182d53c16df24a72126ec381"
     },
     {
-      "url": "data/b1-part7.csv",
-      "revision": "ee03d639103da06633cb43510e4e6d305ba7836d8f89ebea7b7a4640e050f249"
+      "url": "data/b1-part06.csv",
+      "revision": "20dbb154bdfb80af14cf9b57f80ec80a9417e3e664307f4a556bf4102d2c1d1a"
     },
     {
-      "url": "data/b1-part8.csv",
-      "revision": "421023628992532844a9694aa4db29212532b4926ce52f77b363284ff7be0fb0"
+      "url": "data/b1-part07.csv",
+      "revision": "768f6df206dfa07b9a21e885fd6a5df449bafdc00e6739a47b71d6ebc1dfe1c7"
     },
     {
-      "url": "data/b2-part1.csv",
-      "revision": "452262362e102540eb08d4b8bb9ad57c40216a69b185ec7a9308655e2a7ca8c3"
+      "url": "data/b1-part08.csv",
+      "revision": "89d9a2a0592a1e163e666ef49e02cf4cbf9dd26fc6de2054947564ee7aeff8cf"
     },
     {
-      "url": "data/b2-part2.csv",
-      "revision": "2bf50aa82655346875b0377cafff102c121efc1b6b10c40473ce4d572ffee749"
+      "url": "data/b1-part09.csv",
+      "revision": "1dc85cafe100e259c52044e7ac6b2b39fe2f63315c5bb94e1bd070ed882b28ed"
     },
     {
-      "url": "data/b2-part3.csv",
-      "revision": "225fac97cc95717f8a751ea55ed5682b489ae21cc69fa455d9f40a1c04fb0dbf"
+      "url": "data/b1-part10.csv",
+      "revision": "89d8a8e8fb46908fc0a343826c216d92c8877c6fe8ea884bcfac7d508391faf5"
     },
     {
-      "url": "data/b2-part4.csv",
-      "revision": "9e943907da18c2c56d81fd119239aa17ecfb3e84b6f03dbae472ac50e194e694"
+      "url": "data/b2-part01.csv",
+      "revision": "92397bafa944b636b1b55ec5b213df601def11610a0f822e740ee60f452f1c2d"
     },
     {
-      "url": "data/b2-part5.csv",
-      "revision": "636d59cbebae6f620505afc9f0196d60bd3393b0a1c93edf5721b5f125ccf58a"
+      "url": "data/b2-part02.csv",
+      "revision": "75e5eed29f5ca4e3a218b869813465e22fa1eaf32f7349927b5cbb13b008300d"
     },
     {
-      "url": "data/b2-part6.csv",
-      "revision": "e88a5be354774b703f5b9dc171874964062ee27c03cd5c398fd5c279e3dbafeb"
+      "url": "data/b2-part03.csv",
+      "revision": "afd4c13e4c42c8ddd4b18b3d9aa7f985926cab1aaee48c23e8f51a2c71c11299"
     },
     {
-      "url": "data/b2-part7.csv",
-      "revision": "34366732772bbd4d947a43f445534da0c2ccf51baa78abd378b2756230e626e8"
+      "url": "data/b2-part04.csv",
+      "revision": "c5c2440513310c2ffee3459b23c1691f0f4fe00816ad8effabf1d0c79381f069"
     },
     {
-      "url": "data/c1-part1.csv",
-      "revision": "8f19fd673642813e78af17beae5cc2a7f017c6935ef29bf3dee3b093928cedcc"
+      "url": "data/b2-part05.csv",
+      "revision": "dd57f51ee164fd4bdf6dc9b85a3929ae37a62cea5ffc5cb3605ea89e92c1a26a"
     },
     {
-      "url": "data/c1-part2.csv",
-      "revision": "9b6aa0e4016e617f180d228de8cccad86159fee91172ba34e84e675c5c8aeac4"
+      "url": "data/b2-part06.csv",
+      "revision": "2a1025558eca2778fd0b3d36ae1c8612e332d1a84f73ccc22a5f254381dbbc23"
     },
     {
-      "url": "data/c1-part3.csv",
-      "revision": "94ad0fdab495a80de618e25f1538308dd501c3a43edbf5d631e184b7c3cbb03f"
+      "url": "data/b2-part07.csv",
+      "revision": "c82eaf9e07edadd4373c53260384a4d481e30d2c2d2879dfcd149d6679d4f8f6"
     },
     {
-      "url": "data/c1-part4.csv",
-      "revision": "d0b19818eafa8df64c7b9737e0b405d9ad45bb6f367f650a6c7aa2065a6f0741"
+      "url": "data/b2-part08.csv",
+      "revision": "473f770f98c6febc447ee15864f9443174c32a269bf2e97852df6544ecb1ad26"
     },
     {
-      "url": "data/c2-part1.csv",
-      "revision": "79b793c9ce354d963869b9784e9c92783dde2f5328396a7777fedfd18742cbbd"
+      "url": "data/b2-part09.csv",
+      "revision": "84e7f66c7ee432eca84e5d8b5df916a100e2e37f237ece0d9c6cb323829b8106"
+    },
+    {
+      "url": "data/b2-part10.csv",
+      "revision": "48b67f070546ec18da5ce69b458998edc67e189f257da48ad503fc60b8a5a09d"
+    },
+    {
+      "url": "data/b2-part11.csv",
+      "revision": "a7c1428d16a37a5e35622594761881925489d143251a127d4ad63291536e98dd"
+    },
+    {
+      "url": "data/b2-part12.csv",
+      "revision": "c51a828aeb20b9786d404f58ee92e2108a5d332dd2bbb3e17806c45bb7f179a6"
+    },
+    {
+      "url": "data/c1-part01.csv",
+      "revision": "6434ada88df236146ad575266f782c725de3423c9d4141dd632398cdb001f2ba"
+    },
+    {
+      "url": "data/c1-part02.csv",
+      "revision": "a4afae6621cd0639d618088f8d014e89a5b369572f6f585f8776ff20571c11b3"
+    },
+    {
+      "url": "data/c1-part03.csv",
+      "revision": "d66ac19dce78d71f8c6558264a8c2b96200f4380f117c535c0ae1bac0708d476"
+    },
+    {
+      "url": "data/c1-part04.csv",
+      "revision": "15d1a36dc43e42814fa367d786d10f7b113889c6f609df9a47beb3e4fb439f1d"
+    },
+    {
+      "url": "data/c1-part05.csv",
+      "revision": "c1e0b3e6987501c2347d53e189fa8b9d6902b45b424869958ed7ba200e5c11bf"
+    },
+    {
+      "url": "data/c1-part06.csv",
+      "revision": "a2c0d0bf4f4702a56dcd2c8bddfedcb18fc54cd1cdeb9f6bdbaba2e4bd292c1f"
+    },
+    {
+      "url": "data/c1-part07.csv",
+      "revision": "65b3f4bc40587aa307e61d34b021f729e7d0f0776c4bf8e7202240f7639b05a5"
+    },
+    {
+      "url": "data/c1-part08.csv",
+      "revision": "a80b0981158032fef87580fcb1ee3c8a8cca78a2d9de68e83ce45377ecbfdc9c"
+    },
+    {
+      "url": "data/c2-part01.csv",
+      "revision": "4971c4cd88844a88ce7a03991f5054985f275bcf24d050f4209b510a15d42855"
+    },
+    {
+      "url": "data/c2-part02.csv",
+      "revision": "d8d88df12fe39c36067bed7fbc6f43f2b07d54ea4c5834e9edb14db2e6265e91"
+    },
+    {
+      "url": "data/c2-part03.csv",
+      "revision": "d0f1ef31fb5cbc0505d1ef609ec4a33c6aba2fee7180f67fa7c0ea156a434faa"
+    },
+    {
+      "url": "data/c2-part04.csv",
+      "revision": "c926b9f2d72faa94878ddca2e6b430e6da5f0a2ab7d08866de23c303e641fce4"
     },
     {
       "url": "data/manifest.json",
@@ -188,7 +248,7 @@
     },
     {
       "url": "index.html",
-      "revision": "88b2ce5a0c65598a47ac3d8a76b4aaa113dc0fb0a2ccf4086cb00cac2e7a9f74"
+      "revision": "c8d0f03ba3625ad86055e1f26c144e723d91aa7edd0e93e7c810756630dd741a"
     },
     {
       "url": "js/audio-tracks.js",
@@ -196,19 +256,19 @@
     },
     {
       "url": "js/audio.js",
-      "revision": "115b4b10b92ca8c58006201a9677721f61c2432b97c96a9c016461920edc0436"
+      "revision": "5e087da5b9384946fe2e3ebd3a3c5dd8f721094598a9454915d6eafb66cd21e2"
     },
     {
       "url": "js/config.js",
-      "revision": "b52ca88940d0373e3a45591b0b57c2fed9a3cfe0f2fbccb13f2e8645efca58ea"
+      "revision": "bad81be4d6f864fe8574e85719be2c956953060a922136bb2d443c002bab5fd6"
     },
     {
       "url": "js/game.js",
-      "revision": "1ed875e48c522941111137c386edbde502dda86639d0b9a88bea72599d63b988"
+      "revision": "850a8d9610dda12241d60978d89078af4935a528b399460d69519b25b974fe50"
     },
     {
       "url": "js/levels.config.js",
-      "revision": "8ca0ac99c9c00ca1b068e650d354cc85c62d0aa419125e67ad576ed2669009f3"
+      "revision": "6dd41cbea7f6568896fcbd27d668a3b95d4a1d6834d77a1b34314fa0d7e9b4f0"
     },
     {
       "url": "js/levels.js",
@@ -234,9 +294,9 @@
   "assetGroups": [
     {
       "url": "assets/word-audio",
-      "files": 7000,
-      "bytes": 69049296,
-      "revision": "68efef7d502b383f",
+      "files": 9720,
+      "bytes": 100441008,
+      "revision": "f5b370aa8436195d",
       "revisionPolicy": "content-hash",
       "versionPolicy": "ignored"
     }
