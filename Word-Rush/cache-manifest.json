@@ -1,6 +1,6 @@
 {
-  "version": "6233812f248cada4",
-  "generatedAt": "2026-07-10T14:28:27.398Z",
+  "version": "36291cbf0b8a2312",
+  "generatedAt": "2026-07-15T15:07:33.813Z",
   "assets": [
     {
       "url": "assets/audio/Music-1.mp3",
@@ -267,8 +267,12 @@
       "revision": "850a8d9610dda12241d60978d89078af4935a528b399460d69519b25b974fe50"
     },
     {
-      "url": "js/levels.config.js",
+      "url": "js/levels.config_back.js",
       "revision": "6dd41cbea7f6568896fcbd27d668a3b95d4a1d6834d77a1b34314fa0d7e9b4f0"
+    },
+    {
+      "url": "js/levels.config.js",
+      "revision": "c50d6dd7cede0677ed9b125964023346f0258fe73166008e750d539fa519bd09"
     },
     {
       "url": "js/levels.js",
